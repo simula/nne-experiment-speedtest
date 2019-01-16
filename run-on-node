@@ -1,0 +1,70 @@
+#!/bin/bash -e
+# =================================================================
+#          #     #                 #     #
+#          ##    #   ####   #####  ##    #  ######   #####
+#          # #   #  #    #  #    # # #   #  #          #
+#          #  #  #  #    #  #    # #  #  #  #####      #
+#          #   # #  #    #  #####  #   # #  #          #
+#          #    ##  #    #  #   #  #    ##  #          #
+#          #     #   ####   #    # #     #  ######     #
+#
+#       ---   The NorNet Testbed for Multi-Homed Systems  ---
+#                       https://www.nntb.no
+# =================================================================
+#
+# Container-based Speed Test for NorNet Edge
+#
+# Copyright (C) 2018-2019 by Thomas Dreibholz
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#
+# Contact: dreibh@simula.no
+
+DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+CONTAINER=${DIR##*/}
+CONTAINERTAG=dreibh/speedtest
+
+TESTNAME="test0"
+WORKDIR="/run/shm/${TESTNAME}"
+
+
+echo "Prepare:"
+rm -rf $WORKDIR
+mkdir -p $WORKDIR
+echo '{"measurement_id": 99999, "measurement_desc_id": 1, "measurement_desc": "RTT measurement", "network_id": 1, "mcc": "242", "mnc": "01", "container": "dreibh/speedtest", "start_time": "2017-05-19 16:22:13", "stop_time": "None"}' >$WORKDIR/config
+mkdir -p $WORKDIR/results
+
+
+echo "Update:"
+docker rm -f ${TESTNAME} >/dev/null 2>&1 || true
+sudo docker pull ${CONTAINERTAG}
+
+
+echo "Run:"
+MONROE_NAMESPACE=$(docker ps --no-trunc -aqf name=monroe-namespace)
+docker run -d \
+   --name ${TESTNAME} \
+   --net=container:$MONROE_NAMESPACE \
+   --cap-add NET_ADMIN \
+   --cap-add NET_RAW \
+   --shm-size=1G \
+   -v $WORKDIR/results:/monroe/results \
+   -v $WORKDIR/config:/monroe/config:ro \
+   -v /etc/nodeid:/nodeid:ro \
+   ${CONTAINERTAG}
+
+sleep 1
+
+echo "Shell:"
+docker exec --interactive=true --tty=true ${TESTNAME} /bin/bash

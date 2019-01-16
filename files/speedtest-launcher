@@ -1,0 +1,164 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+# =================================================================
+#          #     #                 #     #
+#          ##    #   ####   #####  ##    #  ######   #####
+#          # #   #  #    #  #    # # #   #  #          #
+#          #  #  #  #    #  #    # #  #  #  #####      #
+#          #   # #  #    #  #####  #   # #  #          #
+#          #    ##  #    #  #   #  #    ##  #          #
+#          #     #   ####   #    # #     #  ######     #
+#
+#       ---   The NorNet Testbed for Multi-Homed Systems  ---
+#                       https://www.nntb.no
+# =================================================================
+#
+# Container-based Speed Test for NorNet Edge
+#
+# Copyright (C) 2018-2019 by Thomas Dreibholz
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#
+# Contact: dreibh@simula.no
+
+
+import json
+import logging
+import logging.config
+import os
+import sys
+import subprocess
+import zmq
+
+
+NODEID_FILE = '/nodeid'
+CONFIG_FILE  = '/monroe/config'
+LOG_DIRECTORY  = '/monroe/results/log'
+
+
+# ====== Check node ID ======================================================
+try:
+   nodeIDFile = open(NODEID_FILE)
+   nodeID = int(nodeIDFile.read())
+except:
+   sys.stderr.write('Unable to read node ID from ' + NODEID_FILE + '!\n')
+   sys.exit(1)
+
+
+# ====== Read configuration file ============================================
+try:
+   configurationFile = open(CONFIG_FILE)
+   configuration = json.load(configurationFile)
+except:
+   sys.stderr.write('Unable to read configuration from ' + CONFIG_FILE + '!\n')
+   sys.exit(1)
+
+try:
+   mcc           = configuration['mcc']
+   mnc           = configuration['mnc']
+   measurementID = configuration['measurement_id']
+   networkID     = configuration['network_id']
+except Exception as e:
+   sys.stderr.write('Invalid or incomplete configuration in ' + CONFIG_FILE + ':' + str(e) + '\n')
+   sys.exit(1)
+
+
+# ====== Make sure the log directory exists =================================
+try:
+   os.makedirs(LOG_DIRECTORY, 0o755, True)
+except:
+   sys.stderr.write('ERROR: Unable to create directory ' + LOG_DIRECTORY + '!\n')
+   sys.exit(1)
+
+
+# ====== Initialise logger ==================================================
+LOGGING_CONF = {
+   'version': 1,
+   'handlers': {
+      'default': {
+         'level': 'DEBUG',
+         'class': 'logging.handlers.TimedRotatingFileHandler',
+         'formatter': 'standard',
+         'filename': LOG_DIRECTORY + '/speedtest-launcher.log',
+         'when': 'D'
+      },
+   },
+   'formatters': {
+      'standard': {
+         'format': '%(asctime)s %(levelname)s [PID=%(process)d] %(message)s'
+      },
+   },
+   'root': {
+      'level': 'DEBUG',
+      'handlers': ['default'],
+   }
+}
+logging.config.dictConfig(LOGGING_CONF)
+logging.debug('Starting')
+
+
+# ====== Initialise ZeroMQ metadata stream ==================================
+context = zmq.Context()
+socket = context.socket(zmq.SUB)
+socket.connect ('tcp://172.17.0.1:5556')
+socket.setsockopt_string(zmq.SUBSCRIBE, 'MONROE.META.DEVICE.MODEM')
+
+
+# ====== Start instances ====================================================
+processes = {}
+while True:
+   # ------ Read metadata ---------------------------------------------------
+   data = socket.recv().decode('utf-8').split(' ', 1)
+   try:
+      topic    = data[0]
+      metadata = json.loads(data[1])
+   except Exception as e:
+      sys.stderr.write('WARNING: Cannot read metadata: ' + str(e) + '\n')
+      topic    = None
+      metadata = None
+
+   # ------ Extract ICCID and InternalInterface -----------------------------
+   if topic.startswith('MONROE.META.DEVICE.MODEM'):
+      try:
+         metadataIF     = metadata['InternalInterface']
+         metadataMCCMNC = str(metadata['IMSIMCCMNC'])
+         metadataMCC    = metadataMCCMNC[0:3]
+         metadataMNC    = metadataMCCMNC[3:]
+      except Exception as e:
+         logging.warning('WARNING: Cannot read MONROE.META.DEVICE.MODEM: ' + str(e) + '\n')
+         metadataIF     = None
+         metadataMCCMNC = None
+         metadataMCC    = None
+         metadataMNC    = None
+
+   # ------ Try to start instance, if not yet started -----------------------
+   if ((metadataMCC == mcc) and (metadataMNC == mnc) and (metadataIF != None)):
+      if measurementID in processes:
+         if processes[measurementID].poll() != None:
+            processes.remove(measurementID)
+            sys.stderr.write('WARNING: Instance for measurement ID ' + measurementID + ' has stopped!\n')
+
+      if not measurementID in processes:
+         logging.debug('Starting instance ' + str(measurementID) + ' on ' + metadataIF + ' ...')
+         processes[measurementID] = subprocess.Popen([ '/opt/monroe/speedtest',
+                                                       '-i', str(measurementID),
+                                                       '-N', str(networkID),
+                                                       '-I', metadataIF ])
+         logging.debug('Started instance ' + str(measurementID) + ' on ' + metadataIF)
+
+
+logging.debug('Waiting for processes to finish ...')
+for process in processes:
+   process.wait()
+logging.debug('Finished!')

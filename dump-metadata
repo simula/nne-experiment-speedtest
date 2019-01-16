@@ -1,0 +1,64 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+# =================================================================
+#          #     #                 #     #
+#          ##    #   ####   #####  ##    #  ######   #####
+#          # #   #  #    #  #    # # #   #  #          #
+#          #  #  #  #    #  #    # #  #  #  #####      #
+#          #   # #  #    #  #####  #   # #  #          #
+#          #    ##  #    #  #   #  #    ##  #          #
+#          #     #   ####   #    # #     #  ######     #
+#
+#       ---   The NorNet Testbed for Multi-Homed Systems  ---
+#                       https://www.nntb.no
+# =================================================================
+#
+# Container-based Speed Test for NorNet Edge
+#
+# Copyright (C) 2018-2019 by Thomas Dreibholz
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#
+# Contact: dreibh@simula.no
+
+
+import json
+import sys
+import zmq
+
+
+# ====== Initialise ZeroMQ metadata stream ==================================
+context = zmq.Context()
+zmqSocket = context.socket(zmq.SUB)
+zmqSocket.connect ('tcp://172.17.0.1:5556')
+zmqSocket.setsockopt_string(zmq.SUBSCRIBE, '')
+
+poller = zmq.Poller()
+poller.register(zmqSocket, zmq.POLLIN)
+
+
+# ====== Main loop ==========================================================
+while True:
+   pollResult = poller.poll(1000)
+   if (zmqSocket, zmq.POLLIN) in pollResult:
+      try:
+         data = zmqSocket.recv().decode('utf-8').split(' ', 1)
+         topic    = data[0]
+         metadata = json.loads(data[1])
+
+         sys.stdout.write(topic + ': ')
+         sys.stdout.write(json.dumps(metadata, sort_keys=True, indent=3) + '\n')
+         sys.stdout.flush()
+      except Exception as e:
+         sys.stderr.write('ERROR: Cannot read metadata: ' + str(e) + '\n')

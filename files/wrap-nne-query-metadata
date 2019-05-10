@@ -51,10 +51,10 @@ try:
       # 2016-09-28 15:09:05.579781,nne229,24205,lterrc,4
       _ts, _node_id, _mccmnc, _mkey, _mval = line.split(',')
       if mccmnc == _mccmnc:
-      res[_mkey] = {
-         "val": _mval,
-         "ts": _ts,
-      }
+         res[_mkey] = {
+            "val": _mval,
+            "ts": _ts,
+         }
 except:
    pass
 

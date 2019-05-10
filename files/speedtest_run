@@ -45,153 +45,206 @@ import logging.config
 import tempfile
 import signal
 import platform
-from datetime import datetime
+from datetime    import datetime
 from collections import OrderedDict
 
-class At(object):
-  def __init__(self, year=None, month=None, day=None, weekday=None,
-               hour=None, minute=None, second=None):
-      loc = locals()
-      loc.pop("self")
-      self.at = dict((k, v) for k, v in loc.iteritems() if v != None)
 
-  def __contains__(self, now):
-    for k in self.at.keys():
-      try:
-        if not getattr(now, k) in self.at[k]: return False
-      except TypeError:
-        if self.at[k] != getattr(now, k): return False
-    return True
 
-running = True
-
-NET_MAP = { 1: '24201', 2: '24202', 4: '24205', 5: '24206', 15: '24205', 18: '24214', 19: '24219' }
-
-op = argparse.ArgumentParser(description='speedtest.net and web load speed')
-op.add_argument('--mid', type=int, help="Measurement instance id", required=True)
-op.add_argument('--netid', type=int, help='Network ID', required=True)
-op.add_argument('--netif', help='Network interface name', required=True)
-op.add_argument('--coords', help='GPS coordinates: LAT,LON', default='59.913869,10.752245') # Oslo sentrum
-op.add_argument('--url1', help='URL #1 to fetch', default='https://m.nrk.no/')
-op.add_argument('--url2', help='URL #2 to fetch', default='https://www.vg.no/')
-op.add_argument('--hour', type=int, nargs='+', required=True, default=[1, 13, 18])
-op.add_argument('--minute', type=int, nargs='+', required=True, default=[0, ])
-
-opts = op.parse_args()
-mccmnc = NET_MAP[opts.netid]
-
-# FIXME: check if arguments are valid
-
-MBBM_LOGGING_CONF = {
-    'version': 1,
-    'handlers': {
-        'default': {
-            'level': 'DEBUG',
-            'class': 'logging.handlers.TimedRotatingFileHandler',
-            'formatter': 'standard',
-            'filename': '/nne/log/speedtest_%d.log' % (opts.mid),
-            'when': 'D'
-        },
-    },
-    'formatters': {
-        'standard': {
-            'format': '%(asctime)s %(levelname)s [PID=%(process)d] %(message)s'
-        },
-    },
-    'root': {
-        'level': 'DEBUG',
-        'handlers': ['default'],
-    }
-}
-
-logging.config.dictConfig(MBBM_LOGGING_CONF)
-mlogger = logging.getLogger('mbbm')
-cwd = os.path.dirname(os.path.realpath(sys.argv[0]))
-
+# ###### Constants ##########################################################
 cmds = [
   ( 'metadatab', [ 'wrap-nne-query-metadata', mccmnc ] ),
-#  ( 'speedtest', [ 'speedtest_cli', '--simple', '--json', '--coords', opts.coords ] ),
+  # ( 'speedtest', [ 'speedtest_cli', '--simple', '--json', '--coords', opts.coords ] ),
   ( 'webload11', [ 'phantomjs', '--ignore-ssl-errors=true', '%s/loadspeed.js' % (cwd), opts.url1 ] ),
   ( 'webload12', [ 'phantomjs', '--ignore-ssl-errors=true', '%s/loadspeed.js' % (cwd), opts.url1 ] ),
   ( 'webload13', [ 'phantomjs', '--ignore-ssl-errors=true', '%s/loadspeed.js' % (cwd), opts.url1 ] ),
   ( 'webload21', [ 'phantomjs', '--ignore-ssl-errors=true', '%s/loadspeed.js' % (cwd), opts.url2 ] ),
   ( 'webload22', [ 'phantomjs', '--ignore-ssl-errors=true', '%s/loadspeed.js' % (cwd), opts.url2 ] ),
   ( 'webload23', [ 'phantomjs', '--ignore-ssl-errors=true', '%s/loadspeed.js' % (cwd), opts.url2 ] ),
-#  ( 'metadatai', [ 'wrap-nne-query-metadata', mccmnc ] ),
-#  ( 'dash',      [ 'dash', ] ),
+  # ( 'metadatai', [ 'wrap-nne-query-metadata', mccmnc ] ),
+  # ( 'dash',      [ 'dash', ] ),
   ( 'metadataa', [ 'wrap-nne-query-metadata', mccmnc ] ),
 ]
 
-def handler(signum, frame):
-    global running
-    running = False
+NET_MAP = {
+   1: '24201',
+   2: '24202',
+   4: '24205',
+   5: '24206',
+   15: '24205',
+   18: '24214',
+   19: '24219'
+}
 
-signal.signal(signal.SIGINT, handler)
-signal.signal(signal.SIGTERM, handler)
 
+# ###### Global variables ###################################################
+running = True
+cwd     = os.path.dirname(os.path.realpath(sys.argv[0]))
+
+
+# ###### Scheduling #########################################################
+class At(object):
+   def __init__(self,
+                year=None, month=None, day=None, weekday=None,
+                hour=None, minute=None, second=None):
+      loc = locals()
+      loc.pop("self")
+      self.at = dict((k, v) for k, v in loc.items() if v != None)
+
+   def __contains__(self, now):
+      for k in list(self.at.keys()):
+         try:
+            if not getattr(now, k) in self.at[k]: return False
+         except TypeError:
+            if self.at[k] != getattr(now, k): return False
+      return True
+
+
+
+# ###### Signal handler #####################################################
+def signalHandler(signum, frame):
+   global running
+   running = False
+
+
+# ###### Write log entry ####################################################
 def log(s):
-  global opts
+   global opts
 
-  filename = "/nne/data/speedtest_%d.sdat.%s" % (
-    opts.mid, datetime.strftime(datetime.utcnow(), '%Y-%m-%d_%H-%M-%S')
-  )
+   filename = "/nne/data/speedtest_%d.sdat.%s" % (
+      opts.instance, datetime.strftime(datetime.utcnow(), '%Y-%m-%d_%H-%M-%S')
+   )
+   with tempfile.NamedTemporaryFile() as f:
+      time.sleep(10)
+      f.write(s)
+      os.link(f.name, filename)
 
-  with tempfile.NamedTemporaryFile() as f:
-    time.sleep(10)
-    f.write(s)
-    os.link(f.name, filename)
-
+# ###### Run test ###########################################################
 def run():
-  global cwd
-  env = dict(os.environ)
-  res = OrderedDict()
-  try:
-    sip = netifaces.ifaddresses(opts.netif)[netifaces.AF_INET][0]['addr']
-  except:
-    return
+   global cwd
+   env = dict(os.environ)
+   res = OrderedDict()
+   try:
+      sip = netifaces.ifaddresses(opts.iface)[netifaces.AF_INET][0]['addr']
+   except:
+      return
 
-  env['LD_PRELOAD'] = "%s/bind.so.%s" % ( cwd, platform.machine() )
-  env['BIND_ADDR'] = sip
-  env['NAMESERVER1'] = "8.8.8.8"
-  env['PATH'] = "%s:%s" % ( env['PATH'], cwd )
+   env['LD_PRELOAD']  = "%s/bind.so.%s" % ( cwd, platform.machine() )
+   env['BIND_ADDR']   = sip
+   env['NAMESERVER1'] = "8.8.8.8"
+   env['PATH'] = "%s:%s" % ( env['PATH'], cwd )
 
-  now = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S.%f')
-  seqnum = 0
+   now = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S.%f')
+   seqnum = 0
 
-  for cmd in cmds:
-    try:
-      cmd_name, cmd_args = cmd
-      proc = subprocess.Popen(cmd_args, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=env)
-      stdout, stderr = proc.communicate()
+   for cmd in cmds:
+      try:
+         cmd_name, cmd_args = cmd
+         proc = subprocess.Popen(cmd_args, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=env)
+         stdout, stderr = proc.communicate()
 
-      if proc.returncode:
-        res[cmd_name] = {
-          'status': 'error',
-          'exitCode': proc.returncode,
-          'exitMessage': stderr,
-        }
-        continue
+         if proc.returncode:
+            res[cmd_name] = {
+               'status':      'error',
+               'exitCode':    proc.returncode,
+               'exitMessage': stderr
+            }
+            continue
 
-      res[cmd_name] = json.loads(stdout)
+         res[cmd_name] = json.loads(stdout)
 
-    except Exception, e:
-      res[cmd_name] = {
-        'status': 'exception',
-        'exitMessage': str(e),
+      except Exception as e:
+         res[cmd_name] = {
+            'status':      'exception',
+            'exitMessage': str(e)
+         }
+
+   log('%s\t%d\t%d\t%s' % (now, opts.instance, seqnum, json.dumps(res)))
+   # json.dumps(res, indent=4, separators=(',', ': '))
+
+
+
+# ###### Main program #######################################################
+
+# ====== Handle arguments ===================================================
+ap = argparse.ArgumentParser(description='SpeedTest for NorNet Edge')
+ap.add_argument('-i', '--instance',     help='Measurement instance ID',      type=int, required=True)
+ap.add_argument('-N', '--network_id',   help='Network identifier',           type=int, default=None)
+ap.add_argument('-I', '--iface',        help='Interface name',               required=True)
+ap.add_argument('-u', '--uncompressed', help='Turn off results compression', action='store_true', default=False)
+ap.add_argument('--coords', help='GPS coordinates: LAT,LON',    default='59.913869,10.752245') # Oslo sentrum
+ap.add_argument('--url1',   help='URL #1 to fetch',             default='https://m.nrk.no/')
+ap.add_argument('--url2',   help='URL #2 to fetch',             default='https://www.vg.no/')
+ap.add_argument('--hour',   type=int, nargs='+', required=True, default=[1, 13, 18])
+ap.add_argument('--minute', type=int, nargs='+', required=True, default=[0, ])
+
+opts   = ap.parse_args()
+mccmnc = NET_MAP[opts.network_id]
+
+# FIXME: check if arguments are valid
+
+
+# ====== Initialise logger ==================================================
+MBBM_LOGGING_CONF = {
+   'version': 1,
+   'handlers': {
+      'default': {
+         'level': 'DEBUG',
+         'class': 'logging.handlers.TimedRotatingFileHandler',
+         'formatter': 'standard',
+         'filename': (LOG_DIRECTORY + '/speedtest_%d.log') % (options.instance),
+         'when': 'D'
+      },
+      'mbbm': {
+         'level': 'DEBUG',
+         'class': 'logging.handlers.TimedRotatingFileHandler',
+         'formatter': 'mbbm',
+         'filename': (DATA_DIRECTORY + '/speedtest_%d.dat') % (options.instance),
+         'when': 'S',
+         'interval': 15,
       }
+   },
+   'formatters': {
+      'standard': {
+         'format': '%(asctime)s %(levelname)s [PID=%(process)d] %(message)s'
+      },
+      'mbbm': {
+         'format': '%(message)s',
+      }
+   },
+   'loggers': {
+      'mbbm': {
+         'handlers': ['mbbm'],
+         'level': 'DEBUG',
+         'propagate': False,
+      }
+   },
+   'root': {
+      'level': 'DEBUG',
+      'handlers': ['default'],
+   }
+}
 
-  log('%s\t%d\t%d\t%s' % (now, opts.mid, seqnum, json.dumps(res)))
-  # json.dumps(res, indent=4, separators=(',', ': '))
+logging.config.dictConfig(MBBM_LOGGING_CONF)
+mlogger = logging.getLogger('mbbm')
+if compress == True:
+   for loghandler in mlogger.handlers[:]:
+      loghandler.rotator = CompressingRotator
 
+
+# ====== Initialise signal handlers =========================================
+signal.signal(signal.SIGINT,  signalHandler)
+signal.signal(signal.SIGTERM, signalHandler)
+
+
+# ====== Run the tests ======================================================
 # Make the intervals at least 2 minutes apart
-for i in range(len(opts.minute)): opts.minute[i] *= 2
+for i in range(len(opts.minute)):
+   opts.minute[i] *= 2
 
 event = At(hour=opts.hour, minute=opts.minute)
-
 while running:
-  if datetime.utcnow() in event:
-    run()
-
-  time.sleep(60)
+   if datetime.utcnow() in event:
+      run()
+   time.sleep(60)
 
 sys.exit()

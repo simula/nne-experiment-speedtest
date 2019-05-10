@@ -33,20 +33,21 @@
 #
 # Contact: dreibh@simula.no
 
-import subprocess
-import os
-import json
-import sys
-import netifaces
-import time
 import argparse
+import json
 import logging
 import logging.config
-import tempfile
-import signal
+import lzma
+import netifaces
+import os
 import platform
-from datetime    import datetime
+import signal
+import subprocess
+import sys
+import tempfile
+import time
 from collections import OrderedDict
+from datetime    import datetime
 
 
 
@@ -84,9 +85,11 @@ class At(object):
    def __contains__(self, now):
       for k in list(self.at.keys()):
          try:
-            if not getattr(now, k) in self.at[k]: return False
+            if not getattr(now, k) in self.at[k]:
+               return False
          except TypeError:
-            if self.at[k] != getattr(now, k): return False
+            if self.at[k] != getattr(now, k):
+               return False
       return True
 
 
@@ -99,15 +102,26 @@ def signalHandler(signum, frame):
 
 # ###### Write log entry ####################################################
 def log(s):
-   global opts
+   global options
 
-   filename = "/nne/data/speedtest_%d.sdat.%s" % (
+   dirname  = "/monroe/results/data"
+   filename = dirname + "/" + "speedtest_%d.sdat.%s" % (
       options.instance, datetime.strftime(datetime.utcnow(), '%Y-%m-%d_%H-%M-%S')
    )
-   with tempfile.NamedTemporaryFile() as f:
-      time.sleep(10)
+   if compress == True:
+      filename = filename + '.xz'
+   tmpfilename = filename + '.tmp'
+
+   if compress == True:
+      f = lzma.LZMAFile(tmpfilename, 'wb')
       f.write(s)
-      os.link(f.name, filename)
+      f.close()
+   else:
+      f = open(tmpfilename, 'wb')
+      f.write(s)
+      f.close()
+
+   os.rename(tmpfilename, filename)
 
 
 # ###### Run test ###########################################################
@@ -118,6 +132,7 @@ def run(cmds):
    try:
       sip = netifaces.ifaddresses(options.iface)[netifaces.AF_INET][0]['addr']
    except:
+      sys.stderr.write('ERROR: Unable to determine IP address of interface ' + options.iface + '!\n')
       return
 
    env['LD_PRELOAD']  = "%s/bind.so.%s" % ( cwd, platform.machine() )
@@ -138,7 +153,7 @@ def run(cmds):
             res[cmd_name] = {
                'status':      'error',
                'exitCode':    proc.returncode,
-               'exitMessage': stderr
+               'exitMessage': str(stderr.decode('utf-8'))
             }
             continue
 
@@ -150,8 +165,12 @@ def run(cmds):
             'exitMessage': str(e)
          }
 
-   log('%s\t%d\t%d\t%s' % (now, options.instance, seqnum, json.dumps(res)))
-   # json.dumps(res, indent=4, separators=(',', ': '))
+   print(cmd)
+   print(res)
+
+   jsonDump = json.dumps(res)
+   # jsonDump = json.dumps(res, indent=4, separators=(',', ': '))
+   log(('%s\t%d\t%d\t%s' % (now, options.instance, seqnum, jsonDump)).encode('utf-8'))
 
 
 # ###### Compressing log rotator ############################################
@@ -174,13 +193,17 @@ ap.add_argument('-i', '--instance',     help='Measurement instance ID',      typ
 ap.add_argument('-N', '--network_id',   help='Network identifier',           required=True, type=int, default=None)
 ap.add_argument('-I', '--iface',        help='Interface name',               required=True)
 ap.add_argument('-u', '--uncompressed', help='Turn off results compression', action='store_true', default=False)
+ap.add_argument('--once',   help='Run tests once, then exit',   action='store_true', default=False)
 ap.add_argument('--coords', help='GPS coordinates: LAT,LON',    default='59.913869,10.752245')   # Oslo sentrum
 ap.add_argument('--url1',   help='URL #1 to fetch',             default='https://m.nrk.no/')
 ap.add_argument('--url2',   help='URL #2 to fetch',             default='https://www.vg.no/')
 ap.add_argument('--hour',   type=int, nargs='+', required=True, default=[1, 13, 18])
 ap.add_argument('--minute', type=int, nargs='+', required=True, default=[0, ])
-
 options = ap.parse_args()
+
+if options.uncompressed == True:
+   compress = False
+
 try:
    mccmnc = NET_MAP[options.network_id]
 except:
@@ -188,9 +211,6 @@ except:
    print(options.network_id)
    sys.stderr.write('ERROR: Invalid network identifier (not in NET_MAP)!\n')
    sys.exit(1)
-
-
-# FIXME: check if arguments are valid
 
 
 # ====== Initialise logger ==================================================
@@ -250,25 +270,30 @@ signal.signal(signal.SIGTERM, signalHandler)
 cmds = [
    ( 'metadatab', [ 'wrap-nne-query-metadata', mccmnc ] ),
    # ( 'speedtest', [ 'speedtest_cli', '--simple', '--json', '--coords', options.coords ] ),
-   ( 'webload11', [ 'phantomjs', '--ignore-ssl-errors=true', '%s/loadspeed.js' % (cwd), options.url1 ] ),
-   ( 'webload12', [ 'phantomjs', '--ignore-ssl-errors=true', '%s/loadspeed.js' % (cwd), options.url1 ] ),
-   ( 'webload13', [ 'phantomjs', '--ignore-ssl-errors=true', '%s/loadspeed.js' % (cwd), options.url1 ] ),
-   ( 'webload21', [ 'phantomjs', '--ignore-ssl-errors=true', '%s/loadspeed.js' % (cwd), options.url2 ] ),
-   ( 'webload22', [ 'phantomjs', '--ignore-ssl-errors=true', '%s/loadspeed.js' % (cwd), options.url2 ] ),
-   ( 'webload23', [ 'phantomjs', '--ignore-ssl-errors=true', '%s/loadspeed.js' % (cwd), options.url2 ] ),
+   #####( 'webload11', [ 'phantomjs', '--ignore-ssl-errors=true', '%s/loadspeed.js' % (cwd), options.url1 ] ),
+   #####( 'webload12', [ 'phantomjs', '--ignore-ssl-errors=true', '%s/loadspeed.js' % (cwd), options.url1 ] ),
+   #####( 'webload13', [ 'phantomjs', '--ignore-ssl-errors=true', '%s/loadspeed.js' % (cwd), options.url1 ] ),
+   #####( 'webload21', [ 'phantomjs', '--ignore-ssl-errors=true', '%s/loadspeed.js' % (cwd), options.url2 ] ),
+   #####( 'webload22', [ 'phantomjs', '--ignore-ssl-errors=true', '%s/loadspeed.js' % (cwd), options.url2 ] ),
+   #####( 'webload23', [ 'phantomjs', '--ignore-ssl-errors=true', '%s/loadspeed.js' % (cwd), options.url2 ] ),
    # ( 'metadatai', [ 'wrap-nne-query-metadata', mccmnc ] ),
    # ( 'dash',      [ 'dash', ] ),
    ( 'metadataa', [ 'wrap-nne-query-metadata', mccmnc ] )
 ]
 
-# Make the intervals at least 2 minutes apart
-for i in range(len(options.minute)):
-   options.minute[i] *= 2
 
-event = At(hour=options.hour, minute=options.minute)
-while running:
-   if datetime.utcnow() in event:
-      run(cmds)
-   time.sleep(60)
+if not options.once:
+   # Make the intervals at least 2 minutes apart
+   for i in range(len(options.minute)):
+      options.minute[i] *= 2
+
+   event = At(hour=options.hour, minute=options.minute)
+   while running:
+      if datetime.utcnow() in event:
+         run(cmds)
+      time.sleep(60)
+
+else:
+   run(cmds)
 
 sys.exit()

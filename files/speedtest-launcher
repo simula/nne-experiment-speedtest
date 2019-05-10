@@ -42,9 +42,9 @@ import subprocess
 import zmq
 
 
-NODEID_FILE = '/nodeid'
-CONFIG_FILE  = '/monroe/config'
-LOG_DIRECTORY  = '/monroe/results/log'
+NODEID_FILE   = '/nodeid'
+CONFIG_FILE   = '/monroe/config'
+LOG_DIRECTORY = '/monroe/results/log'
 
 
 # ====== Check node ID ======================================================
@@ -152,9 +152,9 @@ while True:
       if not measurementID in processes:
          logging.debug('Starting instance ' + str(measurementID) + ' on ' + metadataIF + ' ...')
          processes[measurementID] = subprocess.Popen([ '/opt/monroe/speedtest_run',
-                                                       '--mid',   str(measurementID),
-                                                       '--netif', metadataIF,
-                                                       '--netid', str(networkID))
+                                                       '-i', str(measurementID),
+                                                       '-N', str(networkID),
+                                                       '-I', metadataIF ])
          logging.debug('Started instance ' + str(measurementID) + ' on ' + metadataIF)
 
 

@@ -37,7 +37,7 @@ MAINTAINER dreibh@simula.no
 COPY files/* /opt/monroe/
 
 RUN apt-get update
-RUN apt-get install -y python3 python3-netifaces python3-zmq
+RUN apt-get install -y python3 python3-netifaces python3-zmq phantomjs
 
 RUN apt-get install -y joe less psmisc mlocate bash-completion && updatedb
 RUN echo "export TERM=vt100" >>/root/.bashrc

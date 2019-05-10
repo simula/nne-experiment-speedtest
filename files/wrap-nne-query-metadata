@@ -38,6 +38,7 @@ import os
 import json
 import sys
 
+
 mccmnc = sys.argv[1]
 
 cmd = "nne-query-metadata"

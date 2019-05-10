@@ -58,13 +58,18 @@ NET_MAP = {
    5: '24206',
    15: '24205',
    18: '24214',
-   19: '24219'
+   19: '24219',
+    0: '00000'   # Test only!
 }
+
+LOG_DIRECTORY  = '/monroe/results/log'
+DATA_DIRECTORY = '/monroe/results'
 
 
 # ###### Global variables ###################################################
-running = True
-cwd     = os.path.dirname(os.path.realpath(sys.argv[0]))
+running  = True
+compress = True
+cwd      = os.path.dirname(os.path.realpath(sys.argv[0]))
 
 
 # ###### Scheduling #########################################################
@@ -97,12 +102,13 @@ def log(s):
    global opts
 
    filename = "/nne/data/speedtest_%d.sdat.%s" % (
-      opts.instance, datetime.strftime(datetime.utcnow(), '%Y-%m-%d_%H-%M-%S')
+      options.instance, datetime.strftime(datetime.utcnow(), '%Y-%m-%d_%H-%M-%S')
    )
    with tempfile.NamedTemporaryFile() as f:
       time.sleep(10)
       f.write(s)
       os.link(f.name, filename)
+
 
 # ###### Run test ###########################################################
 def run(cmds):
@@ -110,7 +116,7 @@ def run(cmds):
    env = dict(os.environ)
    res = OrderedDict()
    try:
-      sip = netifaces.ifaddresses(opts.iface)[netifaces.AF_INET][0]['addr']
+      sip = netifaces.ifaddresses(options.iface)[netifaces.AF_INET][0]['addr']
    except:
       return
 
@@ -144,8 +150,19 @@ def run(cmds):
             'exitMessage': str(e)
          }
 
-   log('%s\t%d\t%d\t%s' % (now, opts.instance, seqnum, json.dumps(res)))
+   log('%s\t%d\t%d\t%s' % (now, options.instance, seqnum, json.dumps(res)))
    # json.dumps(res, indent=4, separators=(',', ': '))
+
+
+# ###### Compressing log rotator ############################################
+def CompressingRotator(source, dest):
+   os.rename(source, dest)
+   f_in = open(dest, 'rb')
+   f_out = lzma.LZMAFile('%s.xz' % dest, 'wb')
+   f_out.writelines(f_in)
+   f_out.close()
+   f_in.close()
+   os.remove(dest)
 
 
 
@@ -154,17 +171,23 @@ def run(cmds):
 # ====== Handle arguments ===================================================
 ap = argparse.ArgumentParser(description='SpeedTest for NorNet Edge')
 ap.add_argument('-i', '--instance',     help='Measurement instance ID',      type=int, required=True)
-ap.add_argument('-N', '--network_id',   help='Network identifier',           type=int, default=None)
+ap.add_argument('-N', '--network_id',   help='Network identifier',           required=True, type=int, default=None)
 ap.add_argument('-I', '--iface',        help='Interface name',               required=True)
 ap.add_argument('-u', '--uncompressed', help='Turn off results compression', action='store_true', default=False)
-ap.add_argument('--coords', help='GPS coordinates: LAT,LON',    default='59.913869,10.752245') # Oslo sentrum
+ap.add_argument('--coords', help='GPS coordinates: LAT,LON',    default='59.913869,10.752245')   # Oslo sentrum
 ap.add_argument('--url1',   help='URL #1 to fetch',             default='https://m.nrk.no/')
 ap.add_argument('--url2',   help='URL #2 to fetch',             default='https://www.vg.no/')
 ap.add_argument('--hour',   type=int, nargs='+', required=True, default=[1, 13, 18])
 ap.add_argument('--minute', type=int, nargs='+', required=True, default=[0, ])
 
-opts   = ap.parse_args()
-mccmnc = NET_MAP[opts.network_id]
+options = ap.parse_args()
+try:
+   mccmnc = NET_MAP[options.network_id]
+except:
+   print(NET_MAP)
+   print(options.network_id)
+   sys.stderr.write('ERROR: Invalid network identifier (not in NET_MAP)!\n')
+   sys.exit(1)
 
 
 # FIXME: check if arguments are valid
@@ -225,24 +248,24 @@ signal.signal(signal.SIGTERM, signalHandler)
 
 # ====== Run the tests ======================================================
 cmds = [
-  ( 'metadatab', [ 'wrap-nne-query-metadata', mccmnc ] ),
-  # ( 'speedtest', [ 'speedtest_cli', '--simple', '--json', '--coords', opts.coords ] ),
-  ( 'webload11', [ 'phantomjs', '--ignore-ssl-errors=true', '%s/loadspeed.js' % (cwd), opts.url1 ] ),
-  ( 'webload12', [ 'phantomjs', '--ignore-ssl-errors=true', '%s/loadspeed.js' % (cwd), opts.url1 ] ),
-  ( 'webload13', [ 'phantomjs', '--ignore-ssl-errors=true', '%s/loadspeed.js' % (cwd), opts.url1 ] ),
-  ( 'webload21', [ 'phantomjs', '--ignore-ssl-errors=true', '%s/loadspeed.js' % (cwd), opts.url2 ] ),
-  ( 'webload22', [ 'phantomjs', '--ignore-ssl-errors=true', '%s/loadspeed.js' % (cwd), opts.url2 ] ),
-  ( 'webload23', [ 'phantomjs', '--ignore-ssl-errors=true', '%s/loadspeed.js' % (cwd), opts.url2 ] ),
-  # ( 'metadatai', [ 'wrap-nne-query-metadata', mccmnc ] ),
-  # ( 'dash',      [ 'dash', ] ),
-  ( 'metadataa', [ 'wrap-nne-query-metadata', mccmnc ] ),
+   ( 'metadatab', [ 'wrap-nne-query-metadata', mccmnc ] ),
+   # ( 'speedtest', [ 'speedtest_cli', '--simple', '--json', '--coords', options.coords ] ),
+   ( 'webload11', [ 'phantomjs', '--ignore-ssl-errors=true', '%s/loadspeed.js' % (cwd), options.url1 ] ),
+   ( 'webload12', [ 'phantomjs', '--ignore-ssl-errors=true', '%s/loadspeed.js' % (cwd), options.url1 ] ),
+   ( 'webload13', [ 'phantomjs', '--ignore-ssl-errors=true', '%s/loadspeed.js' % (cwd), options.url1 ] ),
+   ( 'webload21', [ 'phantomjs', '--ignore-ssl-errors=true', '%s/loadspeed.js' % (cwd), options.url2 ] ),
+   ( 'webload22', [ 'phantomjs', '--ignore-ssl-errors=true', '%s/loadspeed.js' % (cwd), options.url2 ] ),
+   ( 'webload23', [ 'phantomjs', '--ignore-ssl-errors=true', '%s/loadspeed.js' % (cwd), options.url2 ] ),
+   # ( 'metadatai', [ 'wrap-nne-query-metadata', mccmnc ] ),
+   # ( 'dash',      [ 'dash', ] ),
+   ( 'metadataa', [ 'wrap-nne-query-metadata', mccmnc ] )
 ]
 
 # Make the intervals at least 2 minutes apart
-for i in range(len(opts.minute)):
-   opts.minute[i] *= 2
+for i in range(len(options.minute)):
+   options.minute[i] *= 2
 
-event = At(hour=opts.hour, minute=opts.minute)
+event = At(hour=options.hour, minute=options.minute)
 while running:
    if datetime.utcnow() in event:
       run(cmds)

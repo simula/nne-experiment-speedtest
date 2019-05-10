@@ -1,0 +1,107 @@
+#!/usr/bin/env python
+
+import getopt
+import logging
+import sys
+import json
+
+if __name__ == "__main__":
+    sys.path.insert(0, "/usr/share/neubot")
+
+from mod_dash.client_smpl import DASHClientSmpl
+from mod_dash.client_negotiate import DASHNegotiateClient
+from mod_dash.client_negotiate import DASH_RATES
+
+from neubot.backend import BACKEND
+from neubot.config import CONFIG
+from neubot.poller import POLLER
+
+from neubot import log
+from neubot import runner_clnt
+
+import logging
+
+USAGE = """\
+usage: neubot dash [-6flnv] [-A address] [-b backend] [-d datadir] [-p port]"""
+
+logging.getLogger().disabled = True
+
+class NNEDash():
+    def __init__(self):
+        self.measurements = []
+        self.authorization = ""
+        self.real_address = "nne"
+    #
+    # Note: get_auth() and append_result() are
+    # called by self.client.
+    #
+
+    def get_auth(self):
+        """ Return the authorization token """
+        return self.authorization
+
+    def append_result(self, data):
+        """ Append data to client-side results """
+        self.measurements.append(data)
+
+    def test_complete(self):
+        """ Invoked when the test is complete """
+        caller = sys._getframe(1).f_code.co_name
+        # connection_lost, connection_failed
+
+        if caller == "connection_failed":
+          status ="connection failed"
+        else:
+          status = "ok" # XXX
+
+        logging.info("dash: collect... in progress")
+        res = { "status": status, "measurements": self.measurements }
+        print json.dumps(res)
+
+def main(args):
+    """ Main function """
+    try:
+        options, arguments = getopt.getopt(args[1:], "6A:b:d:flnp:v")
+    except getopt.error:
+        sys.exit(USAGE)
+    if arguments:
+        sys.exit(USAGE)
+
+    prefer_ipv6 = 0
+    address = "128.39.37.68" # sputnik
+    # backend = "volatile"
+    backend = "null"
+    datadir = None  # means: pick the default
+    port = 80
+    noisy = 0
+    for name, value in options:
+        if name == "-6":
+            prefer_ipv6 = 1
+        elif name == "-A":
+            address = value
+        elif name == "-b":
+            backend = value
+        elif name == "-d":
+            datadir = value
+        elif name == "-p":
+            port = int(value)
+        elif name == "-v":
+            noisy = 1
+
+    if noisy:
+        log.set_verbose()
+
+    conf = CONFIG.copy()
+
+    BACKEND.use_backend(backend)
+    BACKEND.datadir_init(None, datadir)
+    nnedash = NNEDash()
+
+    client = DASHClientSmpl(POLLER, nnedash, DASH_RATES)
+    client.configure(conf)
+    client.connect((address, port))
+
+    POLLER.loop()
+
+if __name__ == "__main__":
+    main(sys.argv)

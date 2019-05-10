@@ -157,7 +157,11 @@ def run(cmds):
             }
             continue
 
-         res[cmd_name] = json.loads(stdout)
+         print('-----')
+         print(stdout)
+         print('-----')
+
+         res[cmd_name] = json.loads(stdout.decode('utf-8'))
 
       except Exception as e:
          res[cmd_name] = {
@@ -270,12 +274,12 @@ signal.signal(signal.SIGTERM, signalHandler)
 cmds = [
    ( 'metadatab', [ 'wrap-nne-query-metadata', mccmnc ] ),
    # ( 'speedtest', [ 'speedtest_cli', '--simple', '--json', '--coords', options.coords ] ),
-   #####( 'webload11', [ 'phantomjs', '--ignore-ssl-errors=true', '%s/loadspeed.js' % (cwd), options.url1 ] ),
-   #####( 'webload12', [ 'phantomjs', '--ignore-ssl-errors=true', '%s/loadspeed.js' % (cwd), options.url1 ] ),
-   #####( 'webload13', [ 'phantomjs', '--ignore-ssl-errors=true', '%s/loadspeed.js' % (cwd), options.url1 ] ),
-   #####( 'webload21', [ 'phantomjs', '--ignore-ssl-errors=true', '%s/loadspeed.js' % (cwd), options.url2 ] ),
-   #####( 'webload22', [ 'phantomjs', '--ignore-ssl-errors=true', '%s/loadspeed.js' % (cwd), options.url2 ] ),
-   #####( 'webload23', [ 'phantomjs', '--ignore-ssl-errors=true', '%s/loadspeed.js' % (cwd), options.url2 ] ),
+   ( 'webload11', [ 'phantomjs', '--ignore-ssl-errors=true', '%s/loadspeed.js' % (cwd), options.url1 ] ),
+   ####( 'webload12', [ 'phantomjs', '--ignore-ssl-errors=true', '%s/loadspeed.js' % (cwd), options.url1 ] ),
+   ####( 'webload13', [ 'phantomjs', '--ignore-ssl-errors=true', '%s/loadspeed.js' % (cwd), options.url1 ] ),
+   ####( 'webload21', [ 'phantomjs', '--ignore-ssl-errors=true', '%s/loadspeed.js' % (cwd), options.url2 ] ),
+   ####( 'webload22', [ 'phantomjs', '--ignore-ssl-errors=true', '%s/loadspeed.js' % (cwd), options.url2 ] ),
+   ####( 'webload23', [ 'phantomjs', '--ignore-ssl-errors=true', '%s/loadspeed.js' % (cwd), options.url2 ] ),
    # ( 'metadatai', [ 'wrap-nne-query-metadata', mccmnc ] ),
    # ( 'dash',      [ 'dash', ] ),
    ( 'metadataa', [ 'wrap-nne-query-metadata', mccmnc ] )

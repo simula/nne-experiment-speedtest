@@ -51,20 +51,6 @@ from collections import OrderedDict
 
 
 # ###### Constants ##########################################################
-cmds = [
-  ( 'metadatab', [ 'wrap-nne-query-metadata', mccmnc ] ),
-  # ( 'speedtest', [ 'speedtest_cli', '--simple', '--json', '--coords', opts.coords ] ),
-  ( 'webload11', [ 'phantomjs', '--ignore-ssl-errors=true', '%s/loadspeed.js' % (cwd), opts.url1 ] ),
-  ( 'webload12', [ 'phantomjs', '--ignore-ssl-errors=true', '%s/loadspeed.js' % (cwd), opts.url1 ] ),
-  ( 'webload13', [ 'phantomjs', '--ignore-ssl-errors=true', '%s/loadspeed.js' % (cwd), opts.url1 ] ),
-  ( 'webload21', [ 'phantomjs', '--ignore-ssl-errors=true', '%s/loadspeed.js' % (cwd), opts.url2 ] ),
-  ( 'webload22', [ 'phantomjs', '--ignore-ssl-errors=true', '%s/loadspeed.js' % (cwd), opts.url2 ] ),
-  ( 'webload23', [ 'phantomjs', '--ignore-ssl-errors=true', '%s/loadspeed.js' % (cwd), opts.url2 ] ),
-  # ( 'metadatai', [ 'wrap-nne-query-metadata', mccmnc ] ),
-  # ( 'dash',      [ 'dash', ] ),
-  ( 'metadataa', [ 'wrap-nne-query-metadata', mccmnc ] ),
-]
-
 NET_MAP = {
    1: '24201',
    2: '24202',
@@ -119,7 +105,7 @@ def log(s):
       os.link(f.name, filename)
 
 # ###### Run test ###########################################################
-def run():
+def run(cmds):
    global cwd
    env = dict(os.environ)
    res = OrderedDict()
@@ -180,6 +166,7 @@ ap.add_argument('--minute', type=int, nargs='+', required=True, default=[0, ])
 opts   = ap.parse_args()
 mccmnc = NET_MAP[opts.network_id]
 
+
 # FIXME: check if arguments are valid
 
 
@@ -237,6 +224,20 @@ signal.signal(signal.SIGTERM, signalHandler)
 
 
 # ====== Run the tests ======================================================
+cmds = [
+  ( 'metadatab', [ 'wrap-nne-query-metadata', mccmnc ] ),
+  # ( 'speedtest', [ 'speedtest_cli', '--simple', '--json', '--coords', opts.coords ] ),
+  ( 'webload11', [ 'phantomjs', '--ignore-ssl-errors=true', '%s/loadspeed.js' % (cwd), opts.url1 ] ),
+  ( 'webload12', [ 'phantomjs', '--ignore-ssl-errors=true', '%s/loadspeed.js' % (cwd), opts.url1 ] ),
+  ( 'webload13', [ 'phantomjs', '--ignore-ssl-errors=true', '%s/loadspeed.js' % (cwd), opts.url1 ] ),
+  ( 'webload21', [ 'phantomjs', '--ignore-ssl-errors=true', '%s/loadspeed.js' % (cwd), opts.url2 ] ),
+  ( 'webload22', [ 'phantomjs', '--ignore-ssl-errors=true', '%s/loadspeed.js' % (cwd), opts.url2 ] ),
+  ( 'webload23', [ 'phantomjs', '--ignore-ssl-errors=true', '%s/loadspeed.js' % (cwd), opts.url2 ] ),
+  # ( 'metadatai', [ 'wrap-nne-query-metadata', mccmnc ] ),
+  # ( 'dash',      [ 'dash', ] ),
+  ( 'metadataa', [ 'wrap-nne-query-metadata', mccmnc ] ),
+]
+
 # Make the intervals at least 2 minutes apart
 for i in range(len(opts.minute)):
    opts.minute[i] *= 2
@@ -244,7 +245,7 @@ for i in range(len(opts.minute)):
 event = At(hour=opts.hour, minute=opts.minute)
 while running:
    if datetime.utcnow() in event:
-      run()
+      run(cmds)
    time.sleep(60)
 
 sys.exit()

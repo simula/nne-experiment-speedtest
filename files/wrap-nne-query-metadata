@@ -1,0 +1,60 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+# =================================================================
+#          #     #                 #     #
+#          ##    #   ####   #####  ##    #  ######   #####
+#          # #   #  #    #  #    # # #   #  #          #
+#          #  #  #  #    #  #    # #  #  #  #####      #
+#          #   # #  #    #  #####  #   # #  #          #
+#          #    ##  #    #  #   #  #    ##  #          #
+#          #     #   ####   #    # #     #  ######     #
+#
+#       ---   The NorNet Testbed for Multi-Homed Systems  ---
+#                       https://www.nntb.no
+# =================================================================
+#
+# Container-based Speed Test for NorNet Edge
+#
+# Copyright (C) 2018-2019 by Thomas Dreibholz
+# Copyright (C) 2012-2017 by Džiugas Baltrūnas
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#
+# Contact: dreibh@simula.no
+
+import subprocess
+import os
+import json
+import sys
+
+mccmnc = sys.argv[1]
+
+cmd = "nne-query-metadata"
+res = {}
+
+try:
+   proc = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+   stdout, stderr = proc.communicate()
+   for line in stdout.splitlines():
+      # 2016-09-28 15:09:05.579781,nne229,24205,lterrc,4
+      _ts, _node_id, _mccmnc, _mkey, _mval = line.split(',')
+      if mccmnc == _mccmnc:
+      res[_mkey] = {
+         "val": _mval,
+         "ts": _ts,
+      }
+except:
+   pass
+
+print(json.dumps(res))

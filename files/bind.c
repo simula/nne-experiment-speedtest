@@ -116,17 +116,18 @@ void _init (void)
 {
    const char* err;
 
+   // ====== Store pointers to actual bind() and connect() functions ========
    real_bind = dlsym(RTLD_NEXT, "bind");
    if((err = dlerror()) != NULL) {
-      fprintf (stderr, "dlsym (bind): %s\n", err);
+      fprintf(stderr, "dlsym (bind): %s\n", err);
    }
-
    real_connect = dlsym(RTLD_NEXT, "connect");
    if((err = dlerror()) != NULL) {
-      fprintf (stderr, "dlsym (connect): %s\n", err);
+      fprintf(stderr, "dlsym (connect): %s\n", err);
    }
 
-   inaddr_any_saddr = htonl (INADDR_ANY);
+   // ====== Initialise local IPv4 address ==================================
+   inaddr_any_saddr = htonl(INADDR_ANY);
    if((bind_addr_env = getenv("BIND_ADDR")) != NULL) {
       bind_addr_saddr = inet_addr (bind_addr_env);
       local_sockaddr_in->sin_family      = AF_INET;
@@ -140,12 +141,15 @@ void _init (void)
 int bind (int fd, const struct sockaddr* sk, socklen_t sl)
 {
    struct sockaddr_in* lsk_in = (struct sockaddr_in*)sk;
-   debug("bind", sk);
+
+   // ====== Bind IPv4 socket to BIND_ADDR ==================================
+   // debug("bind", sk);
    if((lsk_in->sin_family == AF_INET) &&
       (lsk_in->sin_addr.s_addr == inaddr_any_saddr) &&
       (bind_addr_env)) {
       lsk_in->sin_addr.s_addr = bind_addr_saddr;
    }
+
    return real_bind(fd, sk, sl);
 }
 
@@ -154,11 +158,18 @@ int bind (int fd, const struct sockaddr* sk, socklen_t sl)
 int connect (int fd, const struct sockaddr* sk, socklen_t sl)
 {
    struct sockaddr_in* rsk_in = (struct sockaddr_in*)sk;
-   if((rsk_in->sin_family == AF_INET) && (bind_addr_env)) {
-      debug("bind", (struct sockaddr*)local_sockaddr_in);
-      real_bind(fd, (struct sockaddr*)local_sockaddr_in, sizeof(struct sockaddr));
+
+   // ====== Bind IPv4 socket to BIND_ADDR ==================================
+   if((rsk_in->sin_family == AF_INET) && (bind_addr_env)) {   // Only for IPv4!
+      // debug("bind", (struct sockaddr*)local_sockaddr_in);
+      if((ntohl(rsk_in->sin_addr.s_addr) & 0x7f000000) != 0x7f000000) {   // Only for non-loopback remote addresses!
+         // Newer Ubuntu systems use 127.0.0.53 as DNS resolver. This does not
+         // work when the socket is bound to a certain NIC's address!
+         real_bind(fd, (struct sockaddr*)local_sockaddr_in, sizeof(struct sockaddr));
+      }
    }
-   debug("connect", sk);
+
+   // debug("connect", sk);
    return real_connect(fd, sk, sl);
 }
 
@@ -180,7 +191,7 @@ _print_ns(res_state res)
 
    if(strcmp("-", logfile) == 0) {
       log = stderr;
-   } else if( NULL == ( log = fopen(logfile, "a") )) {
+   } else if( NULL == (log = fopen(logfile, "a") )) {
       error(0, errno, "could not open resolv-ns-override log file %s",
             logfile);
       return;
@@ -191,10 +202,10 @@ _print_ns(res_state res)
    else
       fprintf(log, "%s", ctime(&now));
 
-   for (i=0; i<res->nscount; i++) {
+   for(i = 0; i < res->nscount; i++) {
       inet_ntop(AF_INET, &res->nsaddr_list[i].sin_addr, buf, sizeof(buf));
       fprintf(log, "  configured nameserver %u: %s:%u\n",
-              i+1, buf, ntohs(res->nsaddr_list[i].sin_port));
+              i + 1, buf, ntohs(res->nsaddr_list[i].sin_port));
    }
    fprintf(log, "\n");
 
@@ -219,7 +230,7 @@ __res_maybe_init(res_state res, int preinit)
 
    count = res->nscount;
    res->nscount = 0;
-   for (i = 0; (res->nscount < MAXNS) && (i < 10); i++) {
+   for(i = 0; (res->nscount < MAXNS) && (i < 10); i++) {
       envvar[10]++;
       if( (nameserver = getenv(envvar)) == NULL )
          continue;

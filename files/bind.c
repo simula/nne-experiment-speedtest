@@ -73,6 +73,7 @@
 #include <dlfcn.h>
 #include <errno.h>
 #include <error.h>
+#include <netdb.h>
 
 #include <dlfcn.h>
 
@@ -82,65 +83,85 @@
 #include <assert.h>
 #include <string.h>
 
-int (*real_bind)(int, const struct sockaddr *, socklen_t);
-int (*real_connect)(int, const struct sockaddr *, socklen_t);
+static int (*real_bind)(int, const struct sockaddr*, socklen_t);
+static int (*real_connect)(int, const struct sockaddr*, socklen_t);
 
-char *bind_addr_env;
-unsigned long int bind_addr_saddr;
-unsigned long int inaddr_any_saddr;
-struct sockaddr_in local_sockaddr_in[] = { 0 };
+static char*              bind_addr_env;
+static unsigned long int  bind_addr_saddr;
+static unsigned long int  inaddr_any_saddr;
+static struct sockaddr_in local_sockaddr_in[] = { 0 };
 
+
+// ###### Print debug information ############################################
+static void debug(const char* info, const struct sockaddr* sa)
+{
+   if( (sa->sa_family == AF_INET) || (sa->sa_family == AF_INET6) ) {
+      char addressString[NI_MAXHOST];
+      char portString[NI_MAXSERV];
+      int  result = getnameinfo(sa, sizeof(struct sockaddr_storage),
+                                (char*)&addressString, sizeof(addressString),
+                                (char*)&portString, sizeof(portString),
+                                NI_NUMERICHOST|NI_NUMERICSERV);
+      if(result != 0) {
+         strcpy((char*)&addressString, "???");
+         strcpy((char*)&portString, "?");
+      }
+      fprintf(stderr, "%s: %s:%s\n", info, addressString, portString);
+   }
+}
+
+
+// ###### Initialize ########################################################
 void _init (void)
 {
-   const char *err;
+   const char* err;
 
-   real_bind = dlsym (RTLD_NEXT, "bind");
-   if ((err = dlerror ()) != NULL) {
+   real_bind = dlsym(RTLD_NEXT, "bind");
+   if((err = dlerror()) != NULL) {
       fprintf (stderr, "dlsym (bind): %s\n", err);
    }
 
-   real_connect = dlsym (RTLD_NEXT, "connect");
-   if ((err = dlerror ()) != NULL) {
+   real_connect = dlsym(RTLD_NEXT, "connect");
+   if((err = dlerror()) != NULL) {
       fprintf (stderr, "dlsym (connect): %s\n", err);
    }
 
    inaddr_any_saddr = htonl (INADDR_ANY);
-   if ((bind_addr_env = getenv ("BIND_ADDR")) != NULL) {
+   if((bind_addr_env = getenv("BIND_ADDR")) != NULL) {
       bind_addr_saddr = inet_addr (bind_addr_env);
-      local_sockaddr_in->sin_family = AF_INET;
+      local_sockaddr_in->sin_family      = AF_INET;
       local_sockaddr_in->sin_addr.s_addr = bind_addr_saddr;
-      local_sockaddr_in->sin_port = htons (0);
+      local_sockaddr_in->sin_port        = htons(0);
    }
 }
 
-int bind (int fd, const struct sockaddr *sk, socklen_t sl)
-{
-   static struct sockaddr_in *lsk_in;
 
-   lsk_in = (struct sockaddr_in *)sk;
-/*   printf("bind: %d %s:%d\n", fd, inet_ntoa (lsk_in->sin_addr.s_addr),
-      ntohs (lsk_in->sin_port));*/
-        if ((lsk_in->sin_family == AF_INET)
-      && (lsk_in->sin_addr.s_addr == inaddr_any_saddr)
-      && (bind_addr_env)) {
+// ###### bind() wrapper ####################################################
+int bind (int fd, const struct sockaddr* sk, socklen_t sl)
+{
+   struct sockaddr_in* lsk_in = (struct sockaddr_in*)sk;
+   debug("bind", sk);
+   if((lsk_in->sin_family == AF_INET) &&
+      (lsk_in->sin_addr.s_addr == inaddr_any_saddr) &&
+      (bind_addr_env)) {
       lsk_in->sin_addr.s_addr = bind_addr_saddr;
    }
-   return real_bind (fd, sk, sl);
+   return real_bind(fd, sk, sl);
 }
 
-int connect (int fd, const struct sockaddr *sk, socklen_t sl)
+
+// ###### connect() wrapper #################################################
+int connect (int fd, const struct sockaddr* sk, socklen_t sl)
 {
-   static struct sockaddr_in *rsk_in;
-
-   rsk_in = (struct sockaddr_in *)sk;
-/*   printf("connect: %d %s:%d\n", fd, inet_ntoa (rsk_in->sin_addr.s_addr),
-      ntohs (rsk_in->sin_port));*/
-        if ((rsk_in->sin_family == AF_INET)
-      && (bind_addr_env)) {
-      real_bind (fd, (struct sockaddr *)local_sockaddr_in, sizeof (struct sockaddr));
+   struct sockaddr_in* rsk_in = (struct sockaddr_in*)sk;
+   if((rsk_in->sin_family == AF_INET) && (bind_addr_env)) {
+      debug("bind", (struct sockaddr*)local_sockaddr_in);
+      real_bind(fd, (struct sockaddr*)local_sockaddr_in, sizeof(struct sockaddr));
    }
-   return real_connect (fd, sk, sl);
+   debug("connect", sk);
+   return real_connect(fd, sk, sl);
 }
+
 
 #define super() dlsym(RTLD_NEXT, __func__)
 
@@ -148,24 +169,24 @@ int connect (int fd, const struct sockaddr *sk, socklen_t sl)
 static void
 _print_ns(res_state res)
 {
-   FILE *log;
-   char buf[16];
-   const char *logfile;
-   time_t now = time(NULL);
+   FILE*        log;
+   char         buf[16];
+   const char*  logfile;
    unsigned int i;
+   time_t       now = time(NULL);
 
-   if ( NULL == ( logfile = getenv("RESOLV_NS_OVERRIDE_LOG") ))
+   if( NULL == ( logfile = getenv("RESOLV_NS_OVERRIDE_LOG") ))
       return;
 
-   if (strcmp("-", logfile) == 0) {
+   if(strcmp("-", logfile) == 0) {
       log = stderr;
-   } else if ( NULL == ( log = fopen(logfile, "a") )) {
+   } else if( NULL == ( log = fopen(logfile, "a") )) {
       error(0, errno, "could not open resolv-ns-override log file %s",
             logfile);
       return;
    }
 
-   if ( log == stderr )
+   if( log == stderr )
       fprintf(log, "\n");
    else
       fprintf(log, "%s", ctime(&now));
@@ -173,11 +194,11 @@ _print_ns(res_state res)
    for (i=0; i<res->nscount; i++) {
       inet_ntop(AF_INET, &res->nsaddr_list[i].sin_addr, buf, sizeof(buf));
       fprintf(log, "  configured nameserver %u: %s:%u\n",
-         i+1, buf, ntohs(res->nsaddr_list[i].sin_port));
+              i+1, buf, ntohs(res->nsaddr_list[i].sin_port));
    }
    fprintf(log, "\n");
 
-   if ( log != stderr )
+   if( log != stderr )
       fclose(log);
 }
 #else
@@ -187,10 +208,10 @@ _print_ns(res_state res)
 int
 __res_maybe_init(res_state res, int preinit)
 {
-   int ret, count, i;
-   const char *nameserver;
-   struct sockaddr_in *addr;
-   char envvar[] = "NAMESERVER0";
+   const char*         nameserver;
+   struct sockaddr_in* addr;
+   char                envvar[] = "NAMESERVER0";
+   int                 ret, count, i;
 
    int (*f)(res_state, int) = super();
    assert(f);
@@ -198,21 +219,21 @@ __res_maybe_init(res_state res, int preinit)
 
    count = res->nscount;
    res->nscount = 0;
-   for (i=0; (res->nscount < MAXNS) && (i < 20); i++) {
+   for (i = 0; (res->nscount < MAXNS) && (i < 10); i++) {
       envvar[10]++;
-      if ( (nameserver = getenv(envvar)) == NULL )
+      if( (nameserver = getenv(envvar)) == NULL )
          continue;
       addr = &res->nsaddr_list[i];
-      if ( inet_pton(AF_INET, nameserver, &addr->sin_addr) < 1 ) {
+      if( inet_pton(AF_INET, nameserver, &addr->sin_addr) < 1 ) {
          error(0, errno, "failed to set name server address");
          continue;
       }
       addr->sin_family = AF_INET;
-      addr->sin_port = htons(NAMESERVER_PORT);
+      addr->sin_port   = htons(NAMESERVER_PORT);
       res->nscount++;
    }
 
-   if (!res->nscount)
+   if(!res->nscount)
       res->nscount = count;
 
    _print_ns(res);

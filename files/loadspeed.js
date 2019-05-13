@@ -32,19 +32,20 @@
 // Contact: dreibh@simula.no
 
 
-var page = require('webpage').create(),
+var page   = require('webpage').create(),
     system = require('system'),
     address, output, req;
 
+
+// ###### Generic Functions #################################################
+
+// ====== Print error =======================================================
 console.error = function () {
   require("system").stderr.write(Array.prototype.join.call(arguments, ' ') + '\n');
 };
 
-if (system.args.length === 1) {
-  console.error('Usage: loadspeed.js <some URL>');
-  phantom.exit();
-}
 
+// ====== Callback for error ================================================
 phantom.onError = function(msg, trace) {
   var msgStack = ['PHANTOM ERROR: ' + msg];
   if (trace && trace.length) {
@@ -56,6 +57,10 @@ phantom.onError = function(msg, trace) {
   req['phantomError'] = msgStack.join('\n');
 };
 
+
+// ###### Resource Handling Functions #######################################
+
+// ====== Callback for resource requested ===================================
 page.onResourceRequested = function(request) {
   req['res'][request.id] = {
     method: request.method,
@@ -64,17 +69,29 @@ page.onResourceRequested = function(request) {
   };
 };
 
+
+// ====== Callback for resource received ====================================
 page.onResourceReceived = function(response) {
   req['res'][response.id].responseTime = response.time;
   req['res'][response.id].responseStatus = response.status;
   req['res'][response.id].duration = response.time.getTime() - req['res'][response.id].requestTime.getTime();
 };
 
+
+// ====== Callback for resource error =======================================
 page.onResourceError = function(resourceError) {
   req['res'][resourceError.id].resourceErrorCode = resourceError.errorCode;
   req['res'][resourceError.id].resourceErrorString = resourceError.errorString;
 };
 
+
+// ====== Callback for resource timeout =====================================
+page.onResourceTimeout = function(request) {
+  req['res'][request.id].resourceTimeout = true;
+};
+
+
+// ====== Callback for error ================================================
 page.onError = function(msg, trace) {
   var msgStack = ['ERROR: ' + msg];
   if (trace && trace.length) {
@@ -89,47 +106,57 @@ page.onError = function(msg, trace) {
   req['pageError'][req['pageError'].length] = msgStack.join('\n');
 };
 
-page.onResourceTimeout = function(request) {
-  req['res'][request.id].resourceTimeout = true;
-};
 
+// ====== Callback for loading started ======================================
 page.onLoadStarted = function() {
   req['startTime'] = new Date();
 };
 
+
+// ###### Load Website ######################################################
+
+// ====== Check argument ====================================================
+if (system.args.length === 1) {
+  console.error('Usage: loadspeed.js URL');
+  phantom.exit();
+}
 address = system.args[1];
+
+// ====== Configuration =====================================================
 // iPhone 6
-page.settings.userAgent = 'Mozilla/5.0 (iPhone; CPU iPhone OS 10_0_2 like Mac OS X) AppleWebKit/602.1.50 (KHTML, like Gecko) Version/10.0 Mobile/14A456 Safari/602.1';
-page.viewportSize = { width: 750, height: 1334 };
+page.settings.userAgent       = 'Mozilla/5.0 (iPhone; CPU iPhone OS 10_0_2 like Mac OS X) AppleWebKit/602.1.50 (KHTML, like Gecko) Version/10.0 Mobile/14A456 Safari/602.1';
+page.viewportSize             = { width: 750, height: 1334 };
 page.settings.resourceTimeout = 30000;
 
 req = {
   'startTime': null,
-  'status': null,
-  'res': {},
+  'status':    null,
+  'res':       {},
 };
 
+// ====== Load website ======================================================
 page.open(address, function(status) {
-  var now = new Date();
-  try {
-    req['endTime'] = now;
-    req['duration'] = now.getTime() - req.startTime.getTime();
-    req['status'] = status;
-    if (status !== 'success') {
-      // ...
-    } else {
-      // ...
-    }
-  } catch (err) {
-    req.status = 'exception';
-    req.errorName = err.name;
-    req.errorMessage = err.message;
-  } finally {
-    window.setTimeout(function () {
-      Date.prototype.toJSON = function() { return this.toISOString().replace(/T/, ' ').replace(/Z/, '') }
-      console.log(JSON.stringify(req, undefined, null));
-      phantom.exit();
-    }, 1000);
-  }
-
+   var now = new Date();
+   try {
+      req['endTime']  = now;
+      req['duration'] = now.getTime() - req.startTime.getTime();
+      req['status']   = status;
+      if (status !== 'success') {
+         // ...
+      } else {
+         // ...
+      }
+   } catch (err) {
+      req.status       = 'exception';
+      req.errorName    = err.name;
+      req.errorMessage = err.message;
+   } finally {
+      window.setTimeout(function () {
+         Date.prototype.toJSON = function() { return this.toISOString().replace(/T/, ' ').replace(/Z/, '') };
+         console.log('BEGIN-JSON');
+         console.log(JSON.stringify(req, undefined, null));
+         console.log('END-JSON');
+         phantom.exit(0);
+        }, 1000);
+   }
 });

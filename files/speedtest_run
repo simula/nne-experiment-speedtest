@@ -135,10 +135,10 @@ def run(cmds):
       sys.stderr.write('ERROR: Unable to determine IP address of interface ' + options.iface + '!\n')
       return
 
-   env['LD_PRELOAD']  = "%s/bind.so.%s" % ( cwd, platform.machine() )
+   env['LD_PRELOAD']  = '%s/bind.so.%s' % ( cwd, platform.machine() )
    env['BIND_ADDR']   = sip
-   env['NAMESERVER1'] = "8.8.8.8"
-   env['PATH'] = "%s:%s" % ( env['PATH'], cwd )
+   env['NAMESERVER1'] = '8.8.8.8'
+   env['PATH']        = '%s:%s' % ( env['PATH'], cwd )
 
    now = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S.%f')
    seqnum = 0

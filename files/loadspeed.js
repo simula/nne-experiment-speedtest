@@ -154,7 +154,7 @@ page.open(address, function(status) {
       window.setTimeout(function () {
          Date.prototype.toJSON = function() { return this.toISOString().replace(/T/, ' ').replace(/Z/, '') };
          console.log('BEGIN-JSON');
-         console.log(JSON.stringify(req, undefined, null));
+         console.log(JSON.stringify(req, null, '\t'));
          console.log('END-JSON');
          phantom.exit(0);
         }, 1000);

@@ -58,4 +58,7 @@ try:
 except:
    pass
 
+
+print('BEGIN-JSON');
 print(json.dumps(res))
+print('END-JSON');

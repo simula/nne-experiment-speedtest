@@ -41,6 +41,7 @@ import lzma
 import netifaces
 import os
 import platform
+import re
 import signal
 import subprocess
 import sys
@@ -149,19 +150,38 @@ def run(cmds):
          proc = subprocess.Popen(cmd_args, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=env)
          stdout, stderr = proc.communicate()
 
-         if proc.returncode:
+         # ------ Get result (parse JSON) -----------------------------------
+         if proc.returncode == 0:
+            resultString = stdout.decode('utf-8')
+            s = resultString.find('BEGIN-JSON\n', 0)
+            e = resultString.rfind('\nEND-JSON\n', 0)
+
+            # ------ Extract the JSON between BEGIN-JSON and END-JSON -------
+            if (s >= 0) and (e >= 0):
+               jsonString = resultString[s + 11:e]
+               try:
+                  res[cmd_name] = json.loads(jsonString)
+               except Exception as e:
+                  res[cmd_name] = {
+                     'status':    'exception',
+                     'jsonError': str(e)
+                  }
+
+            # ------ There is no JSON?! -------------------------------------
+            else:
+               res[cmd_name] = {
+                  'status':    'exception',
+                  'jsonError': 'No JSON found!'
+               }
+
+         # ------ Handle non-zero exit code ---------------------------------
+         else:
             res[cmd_name] = {
                'status':      'error',
                'exitCode':    proc.returncode,
                'exitMessage': str(stderr.decode('utf-8'))
             }
             continue
-
-         print('-----')
-         print(stdout)
-         print('-----')
-
-         res[cmd_name] = json.loads(stdout.decode('utf-8'))
 
       except Exception as e:
          res[cmd_name] = {

@@ -146,11 +146,11 @@ void _init (void)
    const char* err;
 
    // ====== Store pointers to actual bind() and connect() functions ========
-   real_bind = dlsym(RTLD_NEXT, "bind");
+   real_bind = (int (*)(int, const struct sockaddr*, socklen_t))dlsym(RTLD_NEXT, "bind");
    if((err = dlerror()) != NULL) {
       fprintf(stderr, "dlsym (bind): %s\n", err);
    }
-   real_connect = dlsym(RTLD_NEXT, "connect");
+   real_connect = (int (*)(int, const struct sockaddr*, socklen_t))dlsym(RTLD_NEXT, "connect");
    if((err = dlerror()) != NULL) {
       fprintf(stderr, "dlsym (connect): %s\n", err);
    }
@@ -277,7 +277,7 @@ __res_maybe_init(res_state res, int preinit)
    char                envvar[] = "NAMESERVER0";
    int                 ret, count, i;
 
-   int (*f)(res_state, int) = super();
+   int (*f)(res_state, int) = (int (*)(res_state, int))super();
    assert(f);
    ret = f(res, preinit);
 

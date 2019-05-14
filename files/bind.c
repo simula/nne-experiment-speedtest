@@ -67,6 +67,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdbool.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
@@ -86,14 +87,15 @@
 static int (*real_bind)(int, const struct sockaddr*, socklen_t);
 static int (*real_connect)(int, const struct sockaddr*, socklen_t);
 
-static char*              bind_addr_env;
-static unsigned long int  bind_addr_saddr;
-static unsigned long int  inaddr_any_saddr;
-static struct sockaddr_in local_sockaddr_in[] = { 0 };
+static const char*         bind_addr_env;
+static const char*         bind_addr6_env;
+static struct sockaddr_in  local_sockaddr_in[]  = { 0 };
+static struct sockaddr_in6 local_sockaddr_in6[] = { 0 };
+static bool                debug_mode = false;
 
 
 // ###### Print debug information ############################################
-static void debug(const char* info, const struct sockaddr* sa)
+static void info(const char* message, const struct sockaddr* sa)
 {
    if( (sa->sa_family == AF_INET) || (sa->sa_family == AF_INET6) ) {
       char addressString[NI_MAXHOST];
@@ -106,7 +108,34 @@ static void debug(const char* info, const struct sockaddr* sa)
          strcpy((char*)&addressString, "???");
          strcpy((char*)&portString, "?");
       }
-      fprintf(stderr, "%s: %s:%s\n", info, addressString, portString);
+      fprintf(stderr, "%s: %s%s%s:%s\n", message,
+              ((sa->sa_family == AF_INET6) ? "[" : ""),
+              addressString,
+              ((sa->sa_family == AF_INET6) ? "]" : ""),
+              portString);
+   }
+}
+
+
+// ###### Get local address from enviroment variable ########################
+static void get_local_address(const char* envVarName, const char** envVarValue,
+                              const int family, struct sockaddr* sa, const socklen_t socklen)
+{
+   if((*envVarValue = getenv(envVarName)) != NULL) {
+      struct addrinfo  hints;
+      struct addrinfo* result = NULL;
+      memset((char*)&hints, 0, sizeof(hints));
+      hints.ai_family = family;
+      hints.ai_flags  = AI_NUMERICHOST|AI_NUMERICSERV;
+      const int errorCode = getaddrinfo(*envVarValue, "0", &hints,  &result);
+      if(errorCode == 0) {
+         memcpy((void*)sa, (void*)result->ai_addr, socklen);
+         freeaddrinfo(result);
+      }
+      else {
+         fprintf(stderr, "ERROR: Unable to handle %s=%s!\n", envVarName, *envVarValue);
+         *envVarValue = NULL;   // Mark as invalid!
+      }
    }
 }
 
@@ -126,13 +155,23 @@ void _init (void)
       fprintf(stderr, "dlsym (connect): %s\n", err);
    }
 
+   const char* bind_debug = getenv("BIND_DEBUG");
+   if(bind_debug != NULL) {
+      debug_mode = (atol(bind_debug) != 0);
+   }
+
    // ====== Initialise local IPv4 address ==================================
-   inaddr_any_saddr = htonl(INADDR_ANY);
-   if((bind_addr_env = getenv("BIND_ADDR")) != NULL) {
-      bind_addr_saddr = inet_addr (bind_addr_env);
-      local_sockaddr_in->sin_family      = AF_INET;
-      local_sockaddr_in->sin_addr.s_addr = bind_addr_saddr;
-      local_sockaddr_in->sin_port        = htons(0);
+   get_local_address("BIND_ADDR", &bind_addr_env, AF_INET,
+                     (struct sockaddr*)&local_sockaddr_in, sizeof(local_sockaddr_in));
+   if((debug_mode) && (bind_addr_env != NULL)) {
+      info("BIND_ADDR", (const struct sockaddr*)&local_sockaddr_in);
+   }
+
+   // ====== Initialise local IPv6 address ==================================
+   get_local_address("BIND_ADDR6", &bind_addr6_env, AF_INET6,
+                     (struct sockaddr*)&local_sockaddr_in6, sizeof(local_sockaddr_in6));
+   if((debug_mode) && (bind_addr6_env != NULL)) {
+      info("BIND_ADDR6", (const struct sockaddr*)&local_sockaddr_in6);
    }
 }
 
@@ -140,16 +179,26 @@ void _init (void)
 // ###### bind() wrapper ####################################################
 int bind (int fd, const struct sockaddr* sk, socklen_t sl)
 {
-   struct sockaddr_in* lsk_in = (struct sockaddr_in*)sk;
+   struct sockaddr_in*  lsk_in  = (struct sockaddr_in*)sk;
+   struct sockaddr_in6* lsk_in6 = (struct sockaddr_in6*)sk;
 
    // ====== Bind IPv4 socket to BIND_ADDR ==================================
-   // debug("bind", sk);
    if((lsk_in->sin_family == AF_INET) &&
-      (lsk_in->sin_addr.s_addr == inaddr_any_saddr) &&
+      (ntohl(lsk_in->sin_addr.s_addr) == INADDR_ANY) &&
       (bind_addr_env)) {
-      lsk_in->sin_addr.s_addr = bind_addr_saddr;
+      lsk_in->sin_addr.s_addr = local_sockaddr_in->sin_addr.s_addr;
    }
 
+   // ====== Bind IPv6 socket to BIND_ADDR6 =================================
+   else if((lsk_in6->sin6_family == AF_INET6) &&
+           (IN6_IS_ADDR_UNSPECIFIED(&lsk_in6->sin6_addr)) &&
+           (bind_addr6_env)) {
+      lsk_in6->sin6_addr = local_sockaddr_in6->sin6_addr;
+   }
+
+   if(debug_mode) {
+      info("bind", sk);
+   }
    return real_bind(fd, sk, sl);
 }
 
@@ -161,7 +210,9 @@ int connect (int fd, const struct sockaddr* sk, socklen_t sl)
 
    // ====== Bind IPv4 socket to BIND_ADDR ==================================
    if((rsk_in->sin_family == AF_INET) && (bind_addr_env)) {   // Only for IPv4!
-      // debug("bind", (struct sockaddr*)local_sockaddr_in);
+      if(debug_mode) {
+         info("bind", (struct sockaddr*)local_sockaddr_in);
+      }
       if((ntohl(rsk_in->sin_addr.s_addr) & 0x7f000000) != 0x7f000000) {   // Only for non-loopback remote addresses!
          // Newer Ubuntu systems use 127.0.0.53 as DNS resolver. This does not
          // work when the socket is bound to a certain NIC's address!
@@ -169,7 +220,9 @@ int connect (int fd, const struct sockaddr* sk, socklen_t sl)
       }
    }
 
-   // debug("connect", sk);
+   if(debug_mode) {
+      info("connect", sk);
+   }
    return real_connect(fd, sk, sl);
 }
 

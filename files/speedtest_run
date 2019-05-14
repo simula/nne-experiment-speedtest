@@ -293,7 +293,7 @@ signal.signal(signal.SIGTERM, signalHandler)
 # ====== Run the tests ======================================================
 cmds = [
    ( 'metadatab', [ 'wrap-nne-query-metadata', mccmnc ] ),
-   # ( 'speedtest', [ 'speedtest_cli', '--simple', '--json', '--coords', options.coords ] ),
+   ( 'speedtest', [ 'speedtest_cli', '--simple', '--json', '--coords', options.coords ] ),
    ( 'webload11', [ 'phantomjs', '--ignore-ssl-errors=true', '%s/loadspeed.js' % (cwd), options.url1 ] ),
    ( 'webload12', [ 'phantomjs', '--ignore-ssl-errors=true', '%s/loadspeed.js' % (cwd), options.url1 ] ),
    ( 'webload13', [ 'phantomjs', '--ignore-ssl-errors=true', '%s/loadspeed.js' % (cwd), options.url1 ] ),

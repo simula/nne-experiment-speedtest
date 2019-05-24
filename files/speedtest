@@ -157,7 +157,7 @@ def run(cmds):
             e = resultString.rfind('\nEND-JSON\n', 0)
 
             # ------ Extract the JSON between BEGIN-JSON and END-JSON -------
-            if (s >= 0) and (e >= 0):
+            if ((s >= 0) and (e >= 0)):
                jsonString = resultString[s + 11:e]
                try:
                   res[cmd_name] = json.loads(jsonString)
@@ -167,8 +167,19 @@ def run(cmds):
                      'jsonError': str(e)
                   }
 
+            # ------ JSON-only result (without BEGIN-JSON and END-JSON) -----
+            elif ((s < 0) and (e < 0)):
+               try:
+                  res[cmd_name] = json.loads(resultString)
+               except Exception as e:
+                  res[cmd_name] = {
+                     'status':    'exception',
+                     'jsonError': str(e)
+                  }
+
             # ------ There is no JSON?! -------------------------------------
             else:
+               print(resultString)
                res[cmd_name] = {
                   'status':    'exception',
                   'jsonError': 'No JSON found!'
@@ -293,15 +304,23 @@ signal.signal(signal.SIGTERM, signalHandler)
 # ====== Run the tests ======================================================
 cmds = [
    ( 'metadatab', [ 'wrap-nne-query-metadata', mccmnc ] ),
-   ( 'speedtest', [ 'speedtest_cli', '--simple', '--json', '--coords', options.coords ] ),
+
+   # ------ SpeedTest CLI ---------------------------------------------------
+   # ( 'speedtest-old', [ 'speedtest_cli-0.3.4', '--simple', '--json', '--coords', options.coords ] ),
+   ( 'speedtest', [ 'speedtest_cli', '--json', '--coords', options.coords ] ),
+
+   # ------ Webload ---------------------------------------------------------
    # ( 'webload11', [ 'phantomjs', '--ignore-ssl-errors=true', '%s/loadspeed.js' % (cwd), options.url1 ] ),
    # ( 'webload12', [ 'phantomjs', '--ignore-ssl-errors=true', '%s/loadspeed.js' % (cwd), options.url1 ] ),
    # ( 'webload13', [ 'phantomjs', '--ignore-ssl-errors=true', '%s/loadspeed.js' % (cwd), options.url1 ] ),
    # ( 'webload21', [ 'phantomjs', '--ignore-ssl-errors=true', '%s/loadspeed.js' % (cwd), options.url2 ] ),
    # ( 'webload22', [ 'phantomjs', '--ignore-ssl-errors=true', '%s/loadspeed.js' % (cwd), options.url2 ] ),
    # ( 'webload23', [ 'phantomjs', '--ignore-ssl-errors=true', '%s/loadspeed.js' % (cwd), options.url2 ] ),
+
+   # ------ Dash ------------------------------------------------------------
    # ( 'metadatai', [ 'wrap-nne-query-metadata', mccmnc ] ),
    # ( 'dash',      [ 'dash', ] ),
+
    ( 'metadataa', [ 'wrap-nne-query-metadata', mccmnc ] )
 ]
 

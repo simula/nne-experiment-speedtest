@@ -151,10 +151,14 @@ while True:
 
       if not measurementID in processes:
          logging.debug('Starting instance ' + str(measurementID) + ' on ' + metadataIF + ' ...')
+
+         minute = (2 * networkID) % 60   # Make the intervals are least 2 minutes apart!
          processes[measurementID] = subprocess.Popen([ '/opt/monroe/speedtest_run',
                                                        '-i', str(measurementID),
                                                        '-N', str(networkID),
-                                                       '-I', metadataIF ])
+                                                       '-I', metadataIF,
+                                                       '--minute', str(minute),
+                                                       '--hour', str(2), str(14), str(19) ])
          logging.debug('Started instance ' + str(measurementID) + ' on ' + metadataIF)
 
 

@@ -54,10 +54,10 @@ from datetime    import datetime
 
 # ###### Constants ##########################################################
 NET_MAP = {
-   1: '24201',
-   2: '24202',
-   4: '24205',
-   5: '24206',
+    1: '24201',
+    2: '24202',
+    4: '24205',
+    5: '24206',
    15: '24205',
    18: '24214',
    19: '24219',
@@ -221,8 +221,8 @@ ap.add_argument('--once',   help='Run tests once, then exit',   action='store_tr
 ap.add_argument('--coords', help='GPS coordinates: LAT,LON',    default='59.913869,10.752245')   # Oslo sentrum
 ap.add_argument('--url1',   help='URL #1 to fetch',             default='https://m.nrk.no/')
 ap.add_argument('--url2',   help='URL #2 to fetch',             default='https://www.vg.no/')
-ap.add_argument('--hour',   type=int, nargs='+', required=True, default=[1, 13, 18])
-ap.add_argument('--minute', type=int, nargs='+', required=True, default=[0, ])
+ap.add_argument('--hour',   type=int, nargs='+', required=True, default=[ 1, 13, 18 ])
+ap.add_argument('--minute', type=int, nargs='+', required=True, default=[ 0 ])
 options = ap.parse_args()
 
 if options.uncompressed == True:
@@ -294,12 +294,12 @@ signal.signal(signal.SIGTERM, signalHandler)
 cmds = [
    ( 'metadatab', [ 'wrap-nne-query-metadata', mccmnc ] ),
    ( 'speedtest', [ 'speedtest_cli', '--simple', '--json', '--coords', options.coords ] ),
-   ( 'webload11', [ 'phantomjs', '--ignore-ssl-errors=true', '%s/loadspeed.js' % (cwd), options.url1 ] ),
-   ( 'webload12', [ 'phantomjs', '--ignore-ssl-errors=true', '%s/loadspeed.js' % (cwd), options.url1 ] ),
-   ( 'webload13', [ 'phantomjs', '--ignore-ssl-errors=true', '%s/loadspeed.js' % (cwd), options.url1 ] ),
-   ( 'webload21', [ 'phantomjs', '--ignore-ssl-errors=true', '%s/loadspeed.js' % (cwd), options.url2 ] ),
-   ( 'webload22', [ 'phantomjs', '--ignore-ssl-errors=true', '%s/loadspeed.js' % (cwd), options.url2 ] ),
-   ( 'webload23', [ 'phantomjs', '--ignore-ssl-errors=true', '%s/loadspeed.js' % (cwd), options.url2 ] ),
+   # ( 'webload11', [ 'phantomjs', '--ignore-ssl-errors=true', '%s/loadspeed.js' % (cwd), options.url1 ] ),
+   # ( 'webload12', [ 'phantomjs', '--ignore-ssl-errors=true', '%s/loadspeed.js' % (cwd), options.url1 ] ),
+   # ( 'webload13', [ 'phantomjs', '--ignore-ssl-errors=true', '%s/loadspeed.js' % (cwd), options.url1 ] ),
+   # ( 'webload21', [ 'phantomjs', '--ignore-ssl-errors=true', '%s/loadspeed.js' % (cwd), options.url2 ] ),
+   # ( 'webload22', [ 'phantomjs', '--ignore-ssl-errors=true', '%s/loadspeed.js' % (cwd), options.url2 ] ),
+   # ( 'webload23', [ 'phantomjs', '--ignore-ssl-errors=true', '%s/loadspeed.js' % (cwd), options.url2 ] ),
    # ( 'metadatai', [ 'wrap-nne-query-metadata', mccmnc ] ),
    # ( 'dash',      [ 'dash', ] ),
    ( 'metadataa', [ 'wrap-nne-query-metadata', mccmnc ] )
@@ -307,15 +307,11 @@ cmds = [
 
 
 if not options.once:
-   # Make the intervals at least 2 minutes apart
-   for i in range(len(options.minute)):
-      options.minute[i] *= 2
-
    event = At(hour=options.hour, minute=options.minute)
    while running:
       if datetime.utcnow() in event:
          run(cmds)
-      time.sleep(60)
+      time.sleep(1)
 
 else:
    run(cmds)

@@ -1,3 +1,4 @@
+"use strict";
 // =================================================================
 //          #     #                 #     #
 //          ##    #   ####   #####  ##    #  ######   #####
@@ -157,13 +158,13 @@ page.open(address, function(status) {
       req.status       = "exception";
       req.errorName    = err.name;
       req.errorMessage = err.message;
-   } finally {
-      window.setTimeout(function () {
-         Date.prototype.toJSON = function() { return this.toISOString().replace(/T/, " ").replace(/Z/, ""); };
-         console.log("BEGIN-JSON");
-         console.log(JSON.stringify(req, null, "\t"));
-         console.log("END-JSON");
-         phantom.exit(0);
-        }, 1000);
+   }
+   finally {
+      Date.prototype.toJSON = function() { return this.toISOString().replace(/T/, " ").replace(/Z/, ""); };
+      console.log("BEGIN-JSON");
+      console.log(JSON.stringify(req, null, "\t"));
+      console.log("END-JSON");
+      phantom.abort();   // FIXME: For some reason, PhantomJS sometimes locks up. Make sure that it exits here!
+      phantom.exit(0);
    }
 });

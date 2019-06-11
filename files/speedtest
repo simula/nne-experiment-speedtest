@@ -244,8 +244,7 @@ MBBM_LOGGING_CONF = {
          'class': 'logging.handlers.TimedRotatingFileHandler',
          'formatter': 'mbbm',
          'filename': (DATA_DIRECTORY + '/speedtest_%d.sdat') % (options.instance),
-         'when': 'S',
-         'interval': 15,
+         'when': 'D'
       }
    },
    'formatters': {

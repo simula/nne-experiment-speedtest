@@ -245,7 +245,7 @@ MBBM_LOGGING_CONF = {
          'formatter': 'mbbm',
          'filename': (DATA_DIRECTORY + '/speedtest_%d.sdat') % (options.instance),
          'when': 'S',
-         'interval': 24*3600,   # The log rotation is performed explicitly after each measurement!
+         'interval': 24*3600   # The log rotation is performed explicitly after each measurement!
       }
    },
    'formatters': {

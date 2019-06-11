@@ -244,7 +244,8 @@ MBBM_LOGGING_CONF = {
          'class': 'logging.handlers.TimedRotatingFileHandler',
          'formatter': 'mbbm',
          'filename': (DATA_DIRECTORY + '/speedtest_%d.sdat') % (options.instance),
-         'when': 'D'
+         'when': 'S',
+         'interval': 24*3600,   # The log rotation is performed explicitly after each measurement!
       }
    },
    'formatters': {

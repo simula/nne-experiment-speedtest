@@ -37,6 +37,13 @@ DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 CONTAINER=`echo "${DIR##*/}" | sed -e "s/^nne-experiment-//g"`
 DOCKERFILE=${CONTAINER}.docker
 
+
+# ------ Build bind.so.<arch> -----------------------------
+cd files
+make
+cd ..
+
+
 docker pull monroe/base
 docker build --rm=true -f ${DOCKERFILE} -t ${CONTAINER} .
 

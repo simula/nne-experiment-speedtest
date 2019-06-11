@@ -101,30 +101,6 @@ def signalHandler(signum, frame):
    running = False
 
 
-# ###### Write log entry ####################################################
-def log(s):
-   global options
-
-   dirname  = "/monroe/results/data"
-   filename = dirname + "/" + "speedtest_%d.sdat.%s" % (
-      options.instance, datetime.strftime(datetime.utcnow(), '%Y-%m-%d_%H-%M-%S')
-   )
-   if compress == True:
-      filename = filename + '.xz'
-   tmpfilename = filename + '.tmp'
-
-   if compress == True:
-      f = lzma.LZMAFile(tmpfilename, 'wb')
-      f.write(s)
-      f.close()
-   else:
-      f = open(tmpfilename, 'wb')
-      f.write(s)
-      f.close()
-
-   os.rename(tmpfilename, filename)
-
-
 # ###### Run test ###########################################################
 def run(cmds):
    global cwd
@@ -141,10 +117,10 @@ def run(cmds):
    env['NAMESERVER1'] = '8.8.8.8'
    env['PATH']        = '%s:%s' % ( env['PATH'], cwd )
 
-   now = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S.%f')
    seqnum = 0
 
    for cmd in cmds:
+      now = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S.%f')
       try:
          cmd_name, cmd_args = cmd
          proc = subprocess.Popen(cmd_args, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=env)
@@ -200,12 +176,16 @@ def run(cmds):
             'exitMessage': str(e)
          }
 
-   print(cmd)
-   print(res)
+      # print(cmd)
+      # print(res)
 
-   jsonDump = json.dumps(res)
-   # jsonDump = json.dumps(res, indent=4, separators=(',', ': '))
-   log(('%s\t%d\t%d\t%s' % (now, options.instance, seqnum, jsonDump)).encode('utf-8'))
+      jsonDump = json.dumps(res)
+      # jsonDump = json.dumps(res, indent=4, separators=(',', ': '))
+      mlogger.info('%s\t%d\t%d\t%s' % (now, options.instance, seqnum, jsonDump))
+
+   # Perform explicit log rollover:
+   for h in mlogger.handlers:
+      h.doRollover()
 
 
 # ###### Compressing log rotator ############################################
@@ -263,7 +243,7 @@ MBBM_LOGGING_CONF = {
          'level': 'DEBUG',
          'class': 'logging.handlers.TimedRotatingFileHandler',
          'formatter': 'mbbm',
-         'filename': (DATA_DIRECTORY + '/speedtest_%d.dat') % (options.instance),
+         'filename': (DATA_DIRECTORY + '/speedtest_%d.sdat') % (options.instance),
          'when': 'S',
          'interval': 15,
       }

@@ -179,11 +179,12 @@ def run(cmds):
       # print(cmd)
       # print(res)
 
-      jsonDump = json.dumps(res)
-      # jsonDump = json.dumps(res, indent=4, separators=(',', ': '))
-      mlogger.info('%s\t%d\t%d\t%s' % (now, options.instance, seqnum, jsonDump))
+   # ------ Write the results -----------------------------------------------
+   jsonDump = json.dumps(res)
+   # jsonDump = json.dumps(res, indent=4, separators=(',', ': '))
+   mlogger.info('%s\t%d\t%d\t%s' % (now, options.instance, seqnum, jsonDump))
 
-   # Perform explicit log rollover:
+   # ------ Perform explicit log rollover -----------------------------------
    for h in mlogger.handlers:
       h.doRollover()
 

@@ -287,8 +287,10 @@ cmds = [
    ( 'metadatab', [ 'wrap-nne-query-metadata', mccmnc ] ),
 
    # ------ SpeedTest CLI ---------------------------------------------------
-   # ( 'speedtest-old', [ 'speedtest_cli-0.3.4', '--simple', '--json', '--coords', options.coords ] ),
-   ( 'speedtest', [ 'speedtest_cli', '--json', '--coords', options.coords ] ),
+   # NOTE: We run the *old* version of the speed test!
+   ( 'speedtest', [ 'speedtest_cli-0.3.4', '--simple', '--json', '--coords', options.coords ] ),
+   # This whould be the new version, but with a different JSON format:
+   # ( 'speedtest', [ 'speedtest_cli', '--json', '--coords', options.coords ] ),
 
    # ------ Webload ---------------------------------------------------------
    # ( 'webload11', [ 'phantomjs', '--ignore-ssl-errors=true', '%s/loadspeed.js' % (cwd), options.url1 ] ),

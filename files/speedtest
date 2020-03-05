@@ -313,6 +313,7 @@ if not options.once:
    while running:
       if datetime.utcnow() in event:
          run(cmds)
+         time.sleep(59)   # Make sure that the commands are not run again in the same minute!
       time.sleep(1)
 
 else:

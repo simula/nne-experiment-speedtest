@@ -143,7 +143,13 @@ while True:
          metadataMNC    = None
 
    # ------ Try to start instance, if not yet started -----------------------
-   if ((metadataMCC == mcc) and (metadataMNC == mnc) and (metadataIF != None)):
+   if ((mcc == None) and (mnc == None) and (networkID == 6)):
+      # Special case: 5G modem tests
+      metadataIF = 'eth0'
+
+   if ( ( ((mcc == None) and (mnc == None)) or
+          ((metadataMCC == mcc) and (metadataMNC == mnc)) ) and
+        (metadataIF != None) ):
       if measurementID in processes:
          if processes[measurementID].poll() != None:
             processes.remove(measurementID)

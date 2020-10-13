@@ -1,0 +1,22 @@
+Reployment via Apollo DB
+========================
+
+
+Define Measurement Descriptor:
+
+# id, name, filemask, parameters, metadata_level, destination_table, executable, dependencies, container
+-- INSERT INTO measurement_descriptor VALUES ('16', 'Combined speedtest.net and web page load test', '', '/nne/measurements/speedtest/speedtest_run.py --mid %measurement_instance_id% --netid %network_id% --netif %node_device_network_if_name% --hour 2 14 19 --minute %network_id%', '0', 'report2017.speedtest_data', 'speedtest/speedtest_run.py', 'speedtest/speedtest_run.py,speedtest/bind.so.armv7l,speedtest/bind.so.x86_64,speedtest/loadspeed.js,speedtest/speedtest_cli.py,speedtest/wrap-nne-query-metadata', 'dreibh/speedtest');
+INSERT INTO measurement_descriptor VALUES ('18', 'Hourly speedtest', '', '/nne/measurements/speedtest/speedtest_run.py --mid %measurement_instance_id% --netid %network_id% --netif %node_device_network_if_name% --hour 0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 --minute %network_id%', '0', 'report2017.speedtest_data', 'speedtest/speedtest_run.py', 'speedtest/speedtest_run.py,speedtest/bind.so.armv7l,speedtest/bind.so.x86_64,speedtest/loadspeed.js,speedtest/speedtest_cli.py,speedtest/wrap-nne-query-metadata', 'dreibh/hourly-speedtest');
+
+
+Define data columns for import:
+
+INSERT INTO measurement_column VALUES( 18, 'data', 'json', '.');
+INSERT INTO measurement_column VALUES( 18, 'mi_id', 'decimal', NULL);
+INSERT INTO measurement_column VALUES( 18, 'ts', 'datetime(6)', NULL);
+
+
+Define Measurement Instance on a Node:
+
+# id, node_id, network_id, measurement_desc_id, start_time, stop_time, parameters
+INSERT INTO measurement_instance ('10304', '823', '6', '18', '2020-08-24 14:42:50', NULL, NULL);

@@ -128,10 +128,10 @@ while True:
       topic    = None
       metadata = None
 
-   # ------ Extract ICCID and InternalInterface -----------------------------
+   # ------ Extract ICCID and InterfaceName ---------------------------------
    if topic.startswith('MONROE.META.DEVICE.MODEM'):
       try:
-         metadataIF     = metadata['InternalInterface']
+         metadataIF     = metadata['InterfaceName']
          metadataMCCMNC = str(metadata['IMSIMCCMNC'])
          metadataMCC    = metadataMCCMNC[0:3]
          metadataMNC    = metadataMCCMNC[3:]

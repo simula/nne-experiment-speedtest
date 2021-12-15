@@ -37,9 +37,11 @@ MAINTAINER dreibh@simula.no
 COPY files/* /opt/monroe/
 
 RUN apt-get update
-RUN apt-get install -y python3 python3-netifaces python3-zmq
-# NOTE: Add the following dependencies for "webload":
-# phantomjs
+
+RUN apt-get remove -y speedtest-cli
+RUN curl -s https://install.speedtest.net/app/cli/install.deb.sh |  bash
+
+RUN apt-get install -y python3 python3-netifaces python3-zmq curl speedtest
 
 RUN apt-get install -y joe less psmisc mlocate bash-completion && updatedb
 RUN echo "export TERM=vt100" >>/root/.bashrc
@@ -47,4 +49,3 @@ RUN echo "export TERM=vt100" >>/root/.bashrc
 RUN apt-get clean
 
 ENTRYPOINT [ "dumb-init", "--", "/usr/bin/python3", "/opt/monroe/speedtest-launcher" ]
-#ENTRYPOINT [ "/sbin/init" ]

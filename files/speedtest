@@ -51,29 +51,15 @@ from collections import OrderedDict
 from datetime    import datetime
 
 
+#LOG_DIRECTORY  = '/monroe/results/log'
+#DATA_DIRECTORY = '/monroe/results'
 
-# ###### Constants ##########################################################
-NET_MAP = {
-    1: '24201',
-    2: '24202',
-    4: '24205',
-    5: '24206',
-    6: '00000',
-   15: '24205',
-   18: '24214',
-   19: '24219',
-    0: '00000'   # Test only!
-}
-
-LOG_DIRECTORY  = '/monroe/results/log'
+LOG_DIRECTORY = '/monroe/results/log'
 DATA_DIRECTORY = '/monroe/results'
-
 
 # ###### Global variables ###################################################
 running  = True
 compress = True
-cwd      = os.path.dirname(os.path.realpath(sys.argv[0]))
-
 
 # ###### Scheduling #########################################################
 class At(object):
@@ -104,8 +90,6 @@ def signalHandler(signum, frame):
 
 # ###### Run test ###########################################################
 def run(cmds):
-   global cwd
-   env = dict(os.environ)
    res = OrderedDict()
    try:
       sip = netifaces.ifaddresses(options.iface)[netifaces.AF_INET][0]['addr']
@@ -113,18 +97,13 @@ def run(cmds):
       sys.stderr.write('ERROR: Unable to determine IP address of interface ' + options.iface + '!\n')
       return
 
-   env['LD_PRELOAD']  = '%s/bind.so.%s' % ( cwd, platform.machine() )
-   env['BIND_ADDR']   = sip
-   env['NAMESERVER1'] = '8.8.8.8'
-   env['PATH']        = '%s:%s' % ( env['PATH'], cwd )
-
    seqnum = 0
 
    for cmd in cmds:
       now = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S.%f')
       try:
          cmd_name, cmd_args = cmd
-         proc = subprocess.Popen(cmd_args, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=env)
+         proc = subprocess.Popen(cmd_args, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
          stdout, stderr = proc.communicate()
 
          # ------ Get result (parse JSON) -----------------------------------
@@ -177,13 +156,11 @@ def run(cmds):
             'exitMessage': str(e)
          }
 
-      # print(cmd)
-      # print(res)
 
    # ------ Write the results -----------------------------------------------
    jsonDump = json.dumps(res)
    # jsonDump = json.dumps(res, indent=4, separators=(',', ': '))
-   mlogger.info('%s\t%d\t%d\t%s' % (now, options.instance, seqnum, jsonDump))
+   mlogger.info('%s\t%d\t%d\t%s' % (now, options.instance, jsonDump))
 
    # ------ Perform explicit log rollover -----------------------------------
    for h in mlogger.handlers:
@@ -200,8 +177,6 @@ def CompressingRotator(source, dest):
    f_in.close()
    os.remove(dest)
 
-
-
 # ###### Main program #######################################################
 
 # ====== Handle arguments ===================================================
@@ -211,24 +186,13 @@ ap.add_argument('-N', '--network_id',   help='Network identifier',           req
 ap.add_argument('-I', '--iface',        help='Interface name',               required=True)
 ap.add_argument('-u', '--uncompressed', help='Turn off results compression', action='store_true', default=False)
 ap.add_argument('--once',   help='Run tests once, then exit',   action='store_true', default=False)
-ap.add_argument('--coords', help='GPS coordinates: LAT,LON',    default='59.913869,10.752245')   # Oslo sentrum
-ap.add_argument('--url1',   help='URL #1 to fetch',             default='https://m.nrk.no/')
-ap.add_argument('--url2',   help='URL #2 to fetch',             default='https://www.vg.no/')
+ap.add_argument('--server', help='Speedtest server ID',                     default=None, type=int)
 ap.add_argument('--hour',   type=int, nargs='+', required=True, default=[ 1, 13, 18 ])
 ap.add_argument('--minute', type=int, nargs='+', required=True, default=[ 0 ])
 options = ap.parse_args()
 
 if options.uncompressed == True:
    compress = False
-
-try:
-   mccmnc = NET_MAP[options.network_id]
-except:
-   print(NET_MAP)
-   print(options.network_id)
-   sys.stderr.write('ERROR: Invalid network identifier (not in NET_MAP)!\n')
-   sys.exit(1)
-
 
 # ====== Initialise logger ==================================================
 MBBM_LOGGING_CONF = {
@@ -284,30 +248,14 @@ signal.signal(signal.SIGTERM, signalHandler)
 
 
 # ====== Run the tests ======================================================
-cmds = [
-   ( 'metadatab', [ 'wrap-nne-query-metadata', mccmnc ] ),
-
-   # ------ SpeedTest CLI ---------------------------------------------------
-   # NOTE: We need to run the *old* version of the speed test!
-   ( 'speedtest', [ 'speedtest_cli-0.3.4', '--simple', '--json', '--coords', options.coords ] ),
-   # This whould be the new version, but with a different JSON format:
-   # !!! ( 'speedtest', [ 'speedtest_cli-2.1.1', '--json', '--coords', options.coords ] ),
-
-   # ------ Webload ---------------------------------------------------------
-   # ( 'webload11', [ 'phantomjs', '--ignore-ssl-errors=true', '%s/loadspeed.js' % (cwd), options.url1 ] ),
-   # ( 'webload12', [ 'phantomjs', '--ignore-ssl-errors=true', '%s/loadspeed.js' % (cwd), options.url1 ] ),
-   # ( 'webload13', [ 'phantomjs', '--ignore-ssl-errors=true', '%s/loadspeed.js' % (cwd), options.url1 ] ),
-   # ( 'webload21', [ 'phantomjs', '--ignore-ssl-errors=true', '%s/loadspeed.js' % (cwd), options.url2 ] ),
-   # ( 'webload22', [ 'phantomjs', '--ignore-ssl-errors=true', '%s/loadspeed.js' % (cwd), options.url2 ] ),
-   # ( 'webload23', [ 'phantomjs', '--ignore-ssl-errors=true', '%s/loadspeed.js' % (cwd), options.url2 ] ),
-
-   # ------ Dash ------------------------------------------------------------
-   # ( 'metadatai', [ 'wrap-nne-query-metadata', mccmnc ] ),
-   # ( 'dash',      [ 'dash', ] ),
-
-   ( 'metadataa', [ 'wrap-nne-query-metadata', mccmnc ] )
-]
-
+if options.server:
+   cmds = [
+      ('speedtest',['speedtest','-I', options.iface, '--accept-license', '-s', str(options.server), '-f', 'json'])
+   ]
+else:
+   cmds = [
+      ('speedtest',['speedtest','-I', options.iface, '--accept-license', '-f', 'json'])
+   ]
 
 if not options.once:
    event = At(hour=options.hour, minute=options.minute)

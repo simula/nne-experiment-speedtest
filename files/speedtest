@@ -51,10 +51,7 @@ from collections import OrderedDict
 from datetime    import datetime
 
 
-#LOG_DIRECTORY  = '/monroe/results/log'
-#DATA_DIRECTORY = '/monroe/results'
-
-LOG_DIRECTORY = '/monroe/results/log'
+LOG_DIRECTORY  = '/monroe/results/log'
 DATA_DIRECTORY = '/monroe/results'
 
 # ###### Global variables ###################################################
@@ -160,7 +157,7 @@ def run(cmds):
    # ------ Write the results -----------------------------------------------
    jsonDump = json.dumps(res)
    # jsonDump = json.dumps(res, indent=4, separators=(',', ': '))
-   mlogger.info('%s\t%d\t%d\t%s' % (now, options.instance, jsonDump))
+   mlogger.info('%s\t%d\t%d\t%s' % (now, options.instance, seqnum, jsonDump))
 
    # ------ Perform explicit log rollover -----------------------------------
    for h in mlogger.handlers:

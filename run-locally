@@ -32,8 +32,8 @@
 # Contact: dreibh@simula.no
 
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-CONTAINER=${DIR##*/}
-CONTAINERTAG=dreibh/speedtest
+CONTAINER="speedtest"
+CONTAINERTAG="dreibh/speedtest"
 
 TESTNAME="test0"
 WORKDIR="/run/shm/${TESTNAME}"
@@ -42,7 +42,7 @@ WORKDIR="/run/shm/${TESTNAME}"
 echo "Prepare:"
 rm -rf $WORKDIR
 mkdir -p $WORKDIR
-echo '{  }' >$WORKDIR/config
+echo '{ "mcc": null, "mnc": null, "measurement_id": 99999, "network_id": 6 }' >$WORKDIR/config
 echo '999' >$WORKDIR/nodeid
 mkdir -p $WORKDIR/results
 
@@ -63,9 +63,10 @@ docker run \
    --cap-add NET_ADMIN \
    --cap-add NET_RAW \
    --shm-size=1G \
+   --net=host \
    -v $WORKDIR:/monroe/results \
-   -v `pwd`/config:/monroe/config:ro \
-   -v `pwd`/nodeid:/nodeid:ro \
+   -v $WORKDIR/config:/monroe/config:ro \
+   -v $WORKDIR/nodeid:/nodeid:ro \
    ${CONTAINERTAG} &
 
 sleep 1

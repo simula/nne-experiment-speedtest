@@ -1,4 +1,5 @@
-#!/bin/bash -e
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 # =================================================================
 #          #     #                 #     #
 #          ##    #   ####   #####  ##    #  ######   #####
@@ -12,9 +13,9 @@
 #                       https://www.nntb.no
 # =================================================================
 #
-# Container-based Speed Test for NorNet Edge
+# Launcher Test
 #
-# Copyright (C) 2018-2019 by Thomas Dreibholz
+# Copyright (C) 2018-2021 by Thomas Dreibholz
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -31,45 +32,17 @@
 #
 # Contact: dreibh@simula.no
 
-DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-CONTAINER="speedtest"
-CONTAINERTAG="dreibh/speedtest"
 
-TESTNAME="test0"
-WORKDIR="/run/shm/${TESTNAME}"
+import time
+import zmq
 
+context = zmq.Context()
+socket = context.socket(zmq.PUB)
+socket.bind("tcp://*:5556")
 
-echo "Prepare:"
-rm -rf $WORKDIR
-mkdir -p $WORKDIR
-echo '{ "mcc": "242", "mnc": "02", "iccid": "8947080037110727061", "measurement_id": "99999", "network_id": "999" }' >$WORKDIR/config
-echo '999' >$WORKDIR/nodeid
-mkdir -p $WORKDIR/results
+while True:
+   socket.send('MONROE.META.DEVICE.MODEM.89470000210701063871.SIGNAL {"SequenceNumber":38540,"Timestamp":1642773783.010252,"DataVersion":3,"DataId":"MONROE.META.DEVICE.MODEM","InternalInterface":"op2","ICCID":"89470000210701063871","IMSI":"242013085646705","IMEI":"863305040230095","InterfaceName":"nlw_1","RSRP":-95,"RSSI":-71,"RSRQ":-7,"DeviceMode":255,"DeviceSubmode":255,"DeviceState":0,"PCI":65535,"CELevel":65535}'.encode('utf-8'))
 
+   socket.send('MONROE.META.DEVICE.MODEM.8947080037110727061.UPDATE {"SequenceNumber":38580,"Timestamp":1642773810.942277,"DataVersion":3,"DataId":"MONROE.META.DEVICE.MODEM","InternalInterface":"op1","ICCID":"8947080037110727061","IMSI":"242029012154919","IMEI":"863305040237108","Operator":"NetCom","IPAddress":"100.81.179.47","InterfaceName":"nlw_2","IMSIMCCMNC":24202,"NWMCCMNC":24202,"LAC":65535,"CID":31346447,"RSRP":-102,"RSSI":-76,"RSRQ":-11,"DeviceMode":5,"DeviceSubmode":0,"DeviceState":3,"PCI":65535,"TxPower":210,"CELevel":65535}'.encode('utf-8'))
 
-echo "Update:"
-docker kill ${TESTNAME} || true
-docker container rm ${TESTNAME} || true
-
-./build
-echo docker tag "${CONTAINER}" "${CONTAINERTAG}"
-docker tag "${CONTAINER}" "${CONTAINERTAG}"
-#./push
-
-
-echo "Run"
-docker run \
-   --name ${TESTNAME} \
-   --cap-add NET_ADMIN \
-   --cap-add NET_RAW \
-   --shm-size=1G \
-   --net=host \
-   -v $WORKDIR:/monroe/results \
-   -v $WORKDIR/config:/monroe/config:ro \
-   -v $WORKDIR/nodeid:/nodeid:ro \
-   ${CONTAINERTAG} &
-
-sleep 1
-
-echo "Shell:"
-docker exec --interactive=true --tty=true ${TESTNAME} /bin/bash
+   time.sleep(1)

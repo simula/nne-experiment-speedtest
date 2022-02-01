@@ -122,6 +122,14 @@ socket.setsockopt_string(zmq.SUBSCRIBE, 'MONROE.META.DEVICE.MODEM')
 # ====== Start instances ====================================================
 processes = {}
 while True:
+   topic          = None
+   metadata       = None
+   metadataIF     = None
+   metadataMCCMNC = None
+   metadataMCC    = None
+   metadataMNC    = None
+   metadataICCID  = None
+
    # ------ Read metadata ---------------------------------------------------
    data = socket.recv().decode('utf-8').split(' ', 1)
    try:
@@ -129,24 +137,18 @@ while True:
       metadata = json.loads(data[1])
    except Exception as e:
       sys.stderr.write('WARNING: Cannot read metadata: ' + str(e) + '\n')
-      topic    = None
-      metadata = None
 
    # ------ Extract ICCID and InterfaceName ---------------------------------
-   if topic.startswith('MONROE.META.DEVICE.MODEM'):
-      try:
-         metadataIF     = metadata['InterfaceName']
-         metadataMCCMNC = str(metadata['IMSIMCCMNC'])
-         metadataMCC    = metadataMCCMNC[0:3]
-         metadataMNC    = metadataMCCMNC[3:]
-         metadataICCID  = str(metadata['ICCID'])
-      except Exception as e:
-         logging.warning('WARNING: Cannot read MONROE.META.DEVICE.MODEM: ' + str(e) + '\n')
-         metadataIF     = None
-         metadataMCCMNC = None
-         metadataMCC    = None
-         metadataMNC    = None
-         metadataICCID  = None
+   if ((topic != None) and (metadata != None)):
+      if (topic.startswith('MONROE.META.DEVICE.MODEM') and topic.endswith('.UPDATE')):
+         try:
+            metadataIF     = metadata['InterfaceName']
+            metadataMCCMNC = str(metadata['IMSIMCCMNC'])
+            metadataMCC    = metadataMCCMNC[0:3]
+            metadataMNC    = metadataMCCMNC[3:]
+            metadataICCID  = str(metadata['ICCID'])
+         except Exception as e:
+            logging.warning('WARNING: Cannot read MONROE.META.DEVICE.MODEM: ' + str(e) + '\n')
 
    # ------ Try to start instance, if not yet started -----------------------
    if ((mcc == None) and (mnc == None) and (networkID == 6)):
@@ -165,7 +167,7 @@ while True:
       if not measurementID in processes:
          logging.debug('Starting instance ' + str(measurementID) + ' on ' + metadataIF + ' ...')
 
-         minute = (2 * networkID) % 60   # Make the intervals are least 2 minutes apart!
+         minute = (2 * int(networkID)) % 60   # Make the intervals are least 2 minutes apart!
          processes[measurementID] = subprocess.Popen([ '/opt/monroe/speedtest',
                                                        '-i', str(measurementID),
                                                        '-N', str(networkID),

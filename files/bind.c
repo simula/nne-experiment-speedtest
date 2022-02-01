@@ -13,7 +13,7 @@
 //
 // bind() wrapper
 //
-// Copyright (C) 2018-2019 by Thomas Dreibholz
+// Copyright (C) 2018-2022 by Thomas Dreibholz
 // Copyright (C) 2000 by Daniel Ryde
 //
 // This program is free software: you can redistribute it and/or modify

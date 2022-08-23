@@ -43,7 +43,8 @@ RUN apt-get remove -y speedtest-cli
 RUN apt-get install -y python3 python3-netifaces python3-zmq curl
 RUN curl -s https://install.speedtest.net/app/cli/install.deb.sh |  bash
 
-RUN apt-get install -y speedtest joe less psmisc mlocate bash-completion && updatedb
+RUN apt-get install -y joe less psmisc mlocate bash-completion && updatedb
+RUN apt-get install -y speedtest
 RUN echo "export TERM=vt100" >>/root/.bashrc
 
 RUN apt-get clean
